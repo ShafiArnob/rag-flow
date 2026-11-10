@@ -1,0 +1,41 @@
+[project]
+name = "runner-spike"
+version = "0.0.0"
+description = "Throwaway P01_S01 spike proving graph-JSON-to-LangGraph semantics. Not for main."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "langchain-core==1.7.6",
+    "langgraph==1.2.20",
+]
+
+[dependency-groups]
+dev = [
+    "mypy==2.4.1",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.4.1.post1",
+    "ruff==0.17.4",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "SIM", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+"mutation_check.py" = ["E501"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["runner_spike", "tests"]
