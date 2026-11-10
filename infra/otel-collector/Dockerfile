@@ -1,5 +1,5 @@
 # The collector image has no shell or wget, so borrow busybox for the container health check.
-FROM busybox:1.37-musl AS tools
+FROM busybox:1.38-musl AS tools
 
 FROM otel/opentelemetry-collector-contrib:0.139.0
 COPY --from=tools /bin/busybox /busybox
