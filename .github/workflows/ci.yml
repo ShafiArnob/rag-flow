@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: flowbuilder
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: flowbuilder_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flowbuilder -d flowbuilder_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://flowbuilder:ci-only@localhost:5432/flowbuilder_test
+      REDIS_URL: redis://localhost:6379/0
+      OBJECT_STORAGE_HEALTH_URL: http://localhost:9000/minio/health/ready
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv sync --frozen
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run mypy
+      # Includes the node contract tests (marker `contract`, added in P01_S08).
+      - run: uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: cp .env.example .env
+      - name: Build every image
+        run: docker compose --env-file .env -f infra/docker-compose.yml build
+      - name: Bring the stack up and wait for every health check
+        run: docker compose --env-file .env -f infra/docker-compose.yml up --wait --wait-timeout 180
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose --env-file .env -f infra/docker-compose.yml logs

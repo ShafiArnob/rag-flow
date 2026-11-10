@@ -1,0 +1,67 @@
+# Live-reload overlay for local development, driven by Compose Watch. Run from the repository root:
+#   docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.dev.yml watch
+#
+# `watch` builds and starts the stack, then copies every edit into the running containers until you
+# stop it with Ctrl+C. initial_sync brings the containers up to date with edits (or reverts) made while
+# it wasn't running. Dev images get their own names so they never replace the production tags.
+
+services:
+  api:
+    image: flowbuilder-api-dev
+    build:
+      context: ../backend
+      target: dev
+    command: >-
+      sh -c "alembic upgrade head
+      && exec uvicorn --factory app.main:create_app_from_environment
+      --host 0.0.0.0 --port 8000 --no-access-log --reload --reload-dir /app/src"
+    develop:
+      watch:
+        - action: sync
+          path: ../backend/src
+          target: /app/src
+          initial_sync: true
+        # Restarting re-runs `alembic upgrade head`.
+        - action: sync+restart
+          path: ../backend/migrations
+          target: /app/migrations
+          initial_sync: true
+        - action: rebuild
+          path: ../backend/pyproject.toml
+        - action: rebuild
+          path: ../backend/uv.lock
+
+  worker:
+    image: flowbuilder-worker-dev
+    build:
+      context: ../backend
+      target: dev
+    develop:
+      watch:
+        # Celery cannot reload code, so restart the worker on every change.
+        - action: sync+restart
+          path: ../backend/src
+          target: /app/src
+          initial_sync: true
+        - action: rebuild
+          path: ../backend/pyproject.toml
+        - action: rebuild
+          path: ../backend/uv.lock
+
+  frontend:
+    image: flowbuilder-frontend-dev
+    build:
+      context: ../frontend
+      target: dev
+    develop:
+      watch:
+        - action: sync
+          path: ../frontend/src
+          target: /app/src
+          initial_sync: true
+        - action: rebuild
+          path: ../frontend/package.json
+        - action: rebuild
+          path: ../frontend/pnpm-lock.yaml
+        - action: rebuild
+          path: ../frontend/next.config.ts
