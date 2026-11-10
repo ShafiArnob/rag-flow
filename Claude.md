@@ -116,3 +116,9 @@ How to write code in this repository. The goal is code that is correct, simple, 
   `docs/`, or README/deploy updates.
 - Use `ui-ux-engineer` for look/feel/accessibility work — it reviews first and
   implements only human-approved findings, never changing existing behaviour.
+
+### 5. Git branches
+
+- Never create, switch, or delete git branches yourself. Work on the branch that is
+  already checked out; the user manages branches.
+- If a task seems to need a new branch, ask the user to create it instead.
