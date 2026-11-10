@@ -62,3 +62,46 @@ How to write code in this repository. The goal is code that is correct, simple, 
 - Run the tests, linter, and type checker, and report any failures as they are.
 - Say what was verified and what was not. Don't call something working unless you ran it.
 - Reread the diff and remove anything the task did not need.
+
+# Workflow
+
+### 1. Plan Mode Default
+
+- Enter plan mode for ANY non-trivial task (3+ steps, architectural decisions, or
+  changes that touch more than one of `backend/`, `frontend/`, `infra/`).
+- Use plan mode for verification strategy, not just building.
+- Write detailed specs upfront to reduce ambiguity. Prefer approval before coding when
+  the plan spans services or changes the database schema (SQLAlchemy models / Alembic
+  migrations) or public API contracts (FastAPI routes and their request/response schemas).
+
+### 2. Self-Improvement Loop
+
+- After ANY correction from the user: update `tasks/lessons.md` with the pattern.
+- Write rules for yourself that prevent the same mistake.
+- Ruthlessly iterate on these lessons until the mistake rate drops.
+- Review `tasks/lessons.md` at session start for this project.
+
+### 3. Skills usage
+
+- Use skills for any task that requires a capability.
+- Load skills from `.claude/skills/`.
+- Invoke skills with slash commands or natural language.
+- Each skill is one independent capability.
+- Load domain skills (`fastapi-patterns`, `sqlalchemy-alembic`, `celery-tasks`,
+  `nextjs-shadcn`) when the task needs that knowledge.
+
+### 4. Subagents usage
+
+- Load subagents from `.claude/agents/`.
+- Use subagents to keep the main context window clean and to focus one tech stack per
+  agent (e.g. `fastapi-engineer` for API and worker work, `nextjs-engineer` for UI).
+- One task per subagent for focused execution.
+- Subagents increase token usage — for simple single-service work, prefer the matching
+  engineer agent (or main agent + domain skill) instead of spawning many.
+- For multi-service design, start with `system-architect`, then engineer agents per
+  service. For review, use `code-reviewer` and `security-engineer` rather than
+  re-deriving checklists from scratch.
+- Use `documentation-engineer` when docs lag code — in-code docs, feature docs in
+  `docs/`, or README/deploy updates.
+- Use `ui-ux-engineer` for look/feel/accessibility work — it reviews first and
+  implements only human-approved findings, never changing existing behaviour.

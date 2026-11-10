@@ -40,6 +40,23 @@ Code is baked into the images, so a plain `up` or `start` runs the old code; use
 changing it. `down` (and Docker Desktop's delete button) removes the containers, and `up` creates them
 again. The database and object storage live in named volumes that survive both; only `down -v` deletes them.
 
+## Live reload
+
+For development, run the dev overlay with Compose Watch and keep the terminal open:
+
+```sh
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.dev.yml watch
+```
+
+It builds and starts the stack, then copies every edit into the running containers until you press
+Ctrl+C. Edits under `frontend/src` and `backend/src` show up within about two seconds (`next dev` and
+`uvicorn --reload`; the worker restarts). Migrations restart the api, which applies them, and changes to
+dependencies or `next.config.ts` rebuild the affected image. Docker Desktop's Start and Stop buttons
+still work, but edits only sync while `watch` is running; stopping `watch` leaves the containers up,
+and the next `watch` catches up on anything changed in between. Dev images are tagged `*-dev`, so
+they never replace the production images.
+Running the stack without the overlay runs the production images, as CI does.
+
 ## Checks
 
 ```sh
