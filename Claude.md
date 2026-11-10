@@ -56,8 +56,19 @@ How to write code in this repository. The goal is code that is correct, simple, 
 - Mock only at external boundaries. Keep tests deterministic and independent of each other.
 - Never weaken, skip, or delete a test to get a passing run. Fix the code, or explain why the test is wrong.
 
+## API testing with Postman
+
+- Keep one Postman collection for the HTTP API, stored as local files under `postman/` and committed alongside the code.
+- Organize the collection into one folder per resource, matching the route groups in `04_API_IMPLEMENTATION_PLAN.md`, such as Health, Auth, Workflows, and Runs.
+- When an endpoint is added or changed, add or update its request in the same change.
+- Give every request tests that check the status code, the response shape, and the fields callers rely on. Cover the error cases, such as 401, 404, and 422, as well as the success case.
+- Put the base URL and resource IDs in environment variables. Have one request's test script store the IDs that later requests need.
+- Keep credentials in Postman secret variables. Never put them in committed collection or environment files.
+- After changing the API, run the collection against the running server with the Postman CLI and report the results.
+- Say whether each result came from a live server or a mock. An endpoint that has only run against a mock has not been tested.
+
 ## Before calling it done
 
-- Run the tests, linter, and type checker, and report any failures as they are.
+- Run the tests, linter, and type checker, plus the Postman collection when the API changed, and report any failures as they are.
 - Say what was verified and what was not. Don't call something working unless you ran it.
 - Reread the diff and remove anything the task did not need.
