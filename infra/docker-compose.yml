@@ -1,0 +1,126 @@
+name: flowbuilder
+
+# Run from the repository root:
+#   docker compose --env-file .env -f infra/docker-compose.yml up --build --wait
+
+x-backend-environment: &backend-environment
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+  REDIS_URL: redis://redis:6379/0
+  OBJECT_STORAGE_HEALTH_URL: http://minio:9000/minio/health/ready
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+    ports:
+      - "127.0.0.1:${MINIO_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      # The image ships bash but no curl or grep; speak HTTP over bash's /dev/tcp.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/localhost/9000
+          && printf 'GET /minio/health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          && read -r status_line <&3
+          && [[ $$status_line == *" 200 "* ]]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  otel-collector:
+    build: ./otel-collector
+    healthcheck:
+      test: ["CMD", "/busybox", "wget", "-q", "-O", "/dev/null", "http://localhost:13133/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ../backend
+    # Starting the api before postgres (for example from Docker Desktop) fails the migration; retry.
+    restart: on-failure
+    # exec makes uvicorn PID 1 so it receives the stop signal; a shell would swallow it and Docker
+    # would kill the container after 10 seconds.
+    command: >-
+      sh -c "alembic upgrade head
+      && exec uvicorn --factory app.main:create_app_from_environment
+      --host 0.0.0.0 --port 8000 --no-access-log"
+    environment: *backend-environment
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      minio: {condition: service_healthy}
+      otel-collector: {condition: service_healthy}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz', timeout=2)
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  worker:
+    build: ../backend
+    command: celery -A app.worker.celery_app worker --loglevel=${LOG_LEVEL:-INFO}
+    environment: *backend-environment
+    depends_on:
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 15s
+
+  frontend:
+    build: ../frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
+  minio-data:

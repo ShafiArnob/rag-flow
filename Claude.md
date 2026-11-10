@@ -27,6 +27,7 @@ How to write code in this repository. The goal is code that is correct, simple, 
 - Make invalid states unrepresentable: use precise types and enums, and validate when constructing objects.
 - Pass dependencies explicitly. Avoid global mutable state.
 - Keep one source of truth for every fact, constant, and setting.
+- For Frontend use shadcn componenents everywhere
 
 ## Readability
 
