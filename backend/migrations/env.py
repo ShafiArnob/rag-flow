@@ -2,9 +2,9 @@ import asyncio
 
 from alembic import context
 from sqlalchemy import Connection
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.config import Settings
+from app.config import MigrationSettings
+from app.database import create_database_engine
 
 
 def run_migrations(connection: Connection) -> None:
@@ -14,8 +14,8 @@ def run_migrations(connection: Connection) -> None:
 
 
 async def run_migrations_online() -> None:
-    settings = Settings()  # type: ignore[call-arg]
-    engine = create_async_engine(settings.database_url)
+    settings = MigrationSettings()  # type: ignore[call-arg]
+    engine = create_database_engine(settings.migration_database_url, row_security=False)
     async with engine.connect() as connection:
         await connection.run_sync(run_migrations)
     await engine.dispose()

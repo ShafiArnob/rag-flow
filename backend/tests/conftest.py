@@ -1,0 +1,77 @@
+"""Shared fixtures. Integration tests expect `python -m app.database_bootstrap` to have run, as
+it does in infra/docker-compose.test.yml and CI."""
+
+import os
+from collections.abc import AsyncIterator
+from pathlib import Path
+
+import pytest
+from alembic import command
+from alembic.config import Config
+from pydantic import SecretStr
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from app.database import create_database_engine
+from tenants import TwoTenants, create_tenant
+
+TEST_DATABASE_URL_VARIABLES = ("DATABASE_URL", "MIGRATION_DATABASE_URL", "BOOTSTRAP_DATABASE_URL")
+TEST_DATABASE_NAME_SUFFIX = "_test"
+ALEMBIC_INI = Path(__file__).parent.parent / "alembic.ini"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def refuse_databases_not_named_for_tests(request: pytest.FixtureRequest) -> None:
+    """The integration suite migrates down to an empty schema and changes roles, so it must never
+    reach a developer or production database."""
+    if not any(item.get_closest_marker("integration") for item in request.session.items):
+        return
+    for variable in TEST_DATABASE_URL_VARIABLES:
+        url = os.environ.get(variable)
+        if url is None:
+            continue
+        database = make_url(url).database or ""
+        if not database.endswith(TEST_DATABASE_NAME_SUFFIX):
+            pytest.exit(
+                f"{variable} names database {database!r}; integration tests run only against a"
+                f" database whose name ends in {TEST_DATABASE_NAME_SUFFIX!r}",
+                returncode=1,
+            )
+
+
+@pytest.fixture(scope="module")
+def schema_at_head() -> None:
+    """Migrates to head, so a module that needs the schema does not depend on the migration tests
+    having run first and left it there. Synchronous, because env.py runs its own event loop."""
+    command.upgrade(Config(str(ALEMBIC_INI)), "head")
+
+
+async def engine_from_environment(variable: str) -> AsyncIterator[AsyncEngine]:
+    engine = create_database_engine(SecretStr(os.environ[variable]))
+    yield engine
+    await engine.dispose()
+
+
+@pytest.fixture
+async def app_engine() -> AsyncIterator[AsyncEngine]:
+    async for engine in engine_from_environment("DATABASE_URL"):
+        yield engine
+
+
+@pytest.fixture
+async def owner_engine() -> AsyncIterator[AsyncEngine]:
+    async for engine in engine_from_environment("MIGRATION_DATABASE_URL"):
+        yield engine
+
+
+@pytest.fixture
+async def superuser_engine() -> AsyncIterator[AsyncEngine]:
+    async for engine in engine_from_environment("BOOTSTRAP_DATABASE_URL"):
+        yield engine
+
+
+@pytest.fixture
+async def two_tenants(schema_at_head: None, app_engine: AsyncEngine) -> TwoTenants:
+    """Two new workspaces, each with a row in every tenant table, written as the application role.
+    Ids are random, so the rows never collide with other tests' rows and need no cleanup."""
+    return TwoTenants(first=await create_tenant(app_engine), second=await create_tenant(app_engine))

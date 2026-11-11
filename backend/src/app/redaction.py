@@ -20,6 +20,11 @@ _ASSIGNMENT_PATTERN = re.compile(
     r"(?i)\b(password|secret|token|api[_-]?key)\b(\s*[=:]\s*)[^\s,;&\"']+"
 )
 _PROVIDER_KEY_PATTERN = re.compile(r"\bsk-[A-Za-z0-9_-]{16,}")
+# The password in scheme://user:password@host.
+_URL_CREDENTIALS_PATTERN = re.compile(r"(://[^\s:/@]*:)[^\s/@]+@")
+# A quoted SQL password, as in CREATE ROLE ... PASSWORD '...'. The closing quote is optional so a
+# truncated statement is still redacted.
+_SQL_PASSWORD_LITERAL_PATTERN = re.compile(r"(?i)\b(PASSWORD\s+)E?'(?:[^']|'')*'?")
 
 
 def is_sensitive_key(key: str) -> bool:
@@ -28,6 +33,8 @@ def is_sensitive_key(key: str) -> bool:
 
 
 def redact_text(text: str) -> str:
+    text = _URL_CREDENTIALS_PATTERN.sub(lambda match: f"{match[1]}{REDACTED}@", text)
+    text = _SQL_PASSWORD_LITERAL_PATTERN.sub(lambda match: f"{match[1]}'{REDACTED}'", text)
     text = _BEARER_PATTERN.sub(f"Bearer {REDACTED}", text)
     text = _ASSIGNMENT_PATTERN.sub(lambda match: f"{match[1]}{match[2]}{REDACTED}", text)
     return _PROVIDER_KEY_PATTERN.sub(REDACTED, text)

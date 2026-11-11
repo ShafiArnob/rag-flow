@@ -3,8 +3,10 @@ name: flowbuilder
 # Run from the repository root:
 #   docker compose --env-file .env -f infra/docker-compose.yml up --build --wait
 
+# Each process gets only the database role it needs: the superuser only in db-bootstrap, the owner
+# only in migrate, and the row-level-security-bound app role in api and worker.
 x-backend-environment: &backend-environment
-  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+  DATABASE_URL: postgresql+asyncpg://flowbuilder_app:${DATABASE_APP_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
   REDIS_URL: redis://redis:6379/0
   OBJECT_STORAGE_HEALTH_URL: http://minio:9000/minio/health/ready
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
@@ -69,21 +71,36 @@ services:
       timeout: 3s
       retries: 10
 
+  # One-shot: creates the extensions and the owner and app roles. Idempotent, so it runs on every up.
+  db-bootstrap:
+    build: ../backend
+    command: ["python", "-m", "app.database_bootstrap"]
+    environment:
+      BOOTSTRAP_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+      DATABASE_OWNER_PASSWORD: ${DATABASE_OWNER_PASSWORD:?}
+      DATABASE_APP_PASSWORD: ${DATABASE_APP_PASSWORD:?}
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  # One-shot: applies migrations as the owner, then moves the 12-month run-partition horizon forward.
+  migrate:
+    build: ../backend
+    command: ["sh", "-c", "alembic upgrade head && exec python -m app.run_partitions"]
+    environment:
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://flowbuilder_owner:${DATABASE_OWNER_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+    depends_on:
+      db-bootstrap: {condition: service_completed_successfully}
+
   api:
     build: ../backend
-    # Starting the api before postgres (for example from Docker Desktop) fails the migration; retry.
+    # Started from Docker Desktop without its dependencies, the api's role guard fails while postgres
+    # is still starting; retry.
     restart: on-failure
-    # exec makes uvicorn PID 1 so it receives the stop signal; a shell would swallow it and Docker
-    # would kill the container after 10 seconds.
-    command: >-
-      sh -c "alembic upgrade head
-      && exec uvicorn --factory app.main:create_app_from_environment
-      --host 0.0.0.0 --port 8000 --no-access-log"
     environment: *backend-environment
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     depends_on:
-      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
       minio: {condition: service_healthy}
       otel-collector: {condition: service_healthy}

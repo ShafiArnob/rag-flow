@@ -11,25 +11,40 @@ services:
     build:
       context: ../backend
       target: dev
-    command: >-
-      sh -c "alembic upgrade head
-      && exec uvicorn --factory app.main:create_app_from_environment
-      --host 0.0.0.0 --port 8000 --no-access-log --reload --reload-dir /app/src"
+    command:
+      - uvicorn
+      - --factory
+      - app.main:create_app_from_environment
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-access-log
+      - --reload
+      - --reload-dir
+      - /app/src
     develop:
       watch:
         - action: sync
           path: ../backend/src
           target: /app/src
           initial_sync: true
-        # Restarting re-runs `alembic upgrade head`.
-        - action: sync+restart
-          path: ../backend/migrations
-          target: /app/migrations
-          initial_sync: true
         - action: rebuild
           path: ../backend/pyproject.toml
         - action: rebuild
           path: ../backend/uv.lock
+
+  # A one-shot service has no running container to sync into, so a migration edit rebuilds it, and
+  # the recreated container applies the new migration.
+  migrate:
+    image: flowbuilder-migrate-dev
+    build:
+      context: ../backend
+      target: dev
+    develop:
+      watch:
+        - action: rebuild
+          path: ../backend/migrations
 
   worker:
     image: flowbuilder-worker-dev
