@@ -1,6 +1,12 @@
+import re
 from typing import Literal
 
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+MINIMUM_PASSWORD_LENGTH = 16
+# Compose interpolates role passwords into database URLs unencoded, so they must need no encoding.
+URL_SAFE_PASSWORD = re.compile(rf"[A-Za-z0-9._~-]{{{MINIMUM_PASSWORD_LENGTH},}}")
 
 
 class Settings(BaseSettings):
@@ -8,9 +14,38 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    database_url: str
+    # Connects as the application role, which row-level security applies to.
+    database_url: SecretStr
     redis_url: str
     object_storage_health_url: str
     otel_exporter_otlp_endpoint: str
     otel_service_name: str = "flowbuilder-api"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
+
+class MigrationSettings(BaseSettings):
+    """Configuration for Alembic, which connects as the role that owns the schema."""
+
+    model_config = SettingsConfigDict(extra="ignore", hide_input_in_errors=True)
+
+    migration_database_url: SecretStr
+
+
+class BootstrapSettings(BaseSettings):
+    """Configuration for app.database_bootstrap, which connects as the superuser."""
+
+    model_config = SettingsConfigDict(extra="ignore", hide_input_in_errors=True)
+
+    bootstrap_database_url: SecretStr
+    database_owner_password: SecretStr
+    database_app_password: SecretStr
+
+    @field_validator("database_owner_password", "database_app_password")
+    @classmethod
+    def require_url_safe_password(cls, password: SecretStr) -> SecretStr:
+        if URL_SAFE_PASSWORD.fullmatch(password.get_secret_value()) is None:
+            raise ValueError(
+                f"must be at least {MINIMUM_PASSWORD_LENGTH} characters,"
+                " using only A-Z, a-z, 0-9 and . _ ~ -"
+            )
+        return password

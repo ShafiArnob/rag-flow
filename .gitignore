@@ -7,4 +7,5 @@ __pycache__/
 node_modules/
 .next/
 *.tsbuildinfo
-.venv
+docs/workflow.md
+docs/runner-contract.md

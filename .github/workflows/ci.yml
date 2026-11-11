@@ -27,7 +27,12 @@ jobs:
           --health-cmd "pg_isready -U flowbuilder -d flowbuilder_test"
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
-      DATABASE_URL: postgresql+asyncpg://flowbuilder:ci-only@localhost:5432/flowbuilder_test
+      # The superuser only bootstraps; migrations and tests use the owner and app roles it creates.
+      BOOTSTRAP_DATABASE_URL: postgresql+asyncpg://flowbuilder:ci-only@localhost:5432/flowbuilder_test
+      DATABASE_OWNER_PASSWORD: ci-only-owner-password
+      DATABASE_APP_PASSWORD: ci-only-app-password
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://flowbuilder_owner:ci-only-owner-password@localhost:5432/flowbuilder_test
+      DATABASE_URL: postgresql+asyncpg://flowbuilder_app:ci-only-app-password@localhost:5432/flowbuilder_test
       REDIS_URL: redis://localhost:6379/0
       OBJECT_STORAGE_HEALTH_URL: http://localhost:9000/minio/health/ready
       OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318
@@ -38,6 +43,8 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run mypy
+      - name: Create the database roles and extensions
+        run: uv run python -m app.database_bootstrap
       # Includes the node contract tests (marker `contract`, added in P01_S08).
       - run: uv run pytest
 

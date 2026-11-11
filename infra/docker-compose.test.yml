@@ -1,0 +1,71 @@
+name: flowbuilder-test
+
+# Disposable stack for the backend checks. The integration tests are destructive (they migrate the
+# database down to empty), so they run here or in CI, never against the dev stack. Run from the
+# repository root:
+#   docker compose -f infra/docker-compose.test.yml run --rm backend-tests
+#   docker compose -f infra/docker-compose.test.yml down -v
+#
+# The source is mounted read-only and every cache lives in the container, so a run never writes into
+# the working tree. Postgres is reached by service name, not loopback, so role passwords are really
+# checked: the postgres image trusts loopback connections without a password.
+
+x-test-passwords:
+  # Test-only values for a throwaway database, like the ci-only password in .github/workflows/ci.yml.
+  superuser: &superuser-password test-only-superuser-pw
+  owner: &owner-password test-only-owner-password
+  app: &app-password test-only-app-password
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: flowbuilder
+      POSTGRES_PASSWORD: *superuser-password
+      POSTGRES_DB: flowbuilder_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowbuilder -d flowbuilder_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  backend-tests:
+    image: ghcr.io/astral-sh/uv:0.13.7-python3.12-trixie-slim
+    working_dir: /app
+    volumes:
+      - ../backend:/app:ro
+      - uv-cache:/root/.cache/uv
+    environment:
+      UV_PROJECT_ENVIRONMENT: /opt/venv
+      UV_FROZEN: "1"
+      UV_LINK_MODE: copy
+      PYTHONDONTWRITEBYTECODE: "1"
+      RUFF_CACHE_DIR: /tmp/ruff-cache
+      MYPY_CACHE_DIR: /tmp/mypy-cache
+      PYTEST_ADDOPTS: -p no:cacheprovider
+      BOOTSTRAP_DATABASE_URL: postgresql+asyncpg://flowbuilder:test-only-superuser-pw@postgres:5432/flowbuilder_test
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://flowbuilder_owner:test-only-owner-password@postgres:5432/flowbuilder_test
+      DATABASE_URL: postgresql+asyncpg://flowbuilder_app:test-only-app-password@postgres:5432/flowbuilder_test
+      DATABASE_OWNER_PASSWORD: *owner-password
+      DATABASE_APP_PASSWORD: *app-password
+      # Not reachable here; the tests that need them use fakes, as in CI.
+      REDIS_URL: redis://localhost:6379/0
+      OBJECT_STORAGE_HEALTH_URL: http://localhost:9000/minio/health/ready
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318
+    command:
+      - sh
+      - -c
+      - >-
+        uv sync
+        && uv run python -m app.database_bootstrap
+        && uv run ruff format --check .
+        && uv run ruff check .
+        && uv run mypy
+        && uv run pytest
+    depends_on:
+      postgres: {condition: service_healthy}
+
+volumes:
+  uv-cache:

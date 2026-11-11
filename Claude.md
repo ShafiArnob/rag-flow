@@ -27,7 +27,10 @@ How to write code in this repository. The goal is code that is correct, simple, 
 - Make invalid states unrepresentable: use precise types and enums, and validate when constructing objects.
 - Pass dependencies explicitly. Avoid global mutable state.
 - Keep one source of truth for every fact, constant, and setting.
-- For Frontend use shadcn componenents everywhere
+
+## Frontend
+
+- Build the UI from shadcn/ui components everywhere. Write a custom component only when shadcn/ui has none that fits.
 
 ## Readability
 
@@ -59,11 +62,11 @@ How to write code in this repository. The goal is code that is correct, simple, 
 
 ## API testing with Postman
 
-- Keep one Postman collection for the HTTP API, stored as local files under `postman/` and committed alongside the code.
-- Organize the collection into one folder per resource, matching the route groups in `04_API_IMPLEMENTATION_PLAN.md`, such as Health, Auth, Workflows, and Runs.
+- Keep one Postman collection for the HTTP API, in `postman/collections/FlowBuilder API/`, committed alongside the code.
+- Organize the collection into one folder per resource, matching the API's route groups, such as Health, Auth, Workflows, and Runs.
 - When an endpoint is added or changed, add or update its request in the same change.
 - Give every request tests that check the status code, the response shape, and the fields callers rely on. Cover the error cases, such as 401, 404, and 422, as well as the success case.
-- Put the base URL and resource IDs in environment variables. Have one request's test script store the IDs that later requests need.
+- Put the base URL and resource IDs in environment variables, in `postman/environments/`. Have one request's test script store the IDs that later requests need.
 - Keep credentials in Postman secret variables. Never put them in committed collection or environment files.
 - After changing the API, run the collection against the running server with the Postman CLI and report the results.
 - Say whether each result came from a live server or a mock. An endpoint that has only run against a mock has not been tested.
@@ -75,6 +78,17 @@ How to write code in this repository. The goal is code that is correct, simple, 
 - Reread the diff and remove anything the task did not need.
 
 # Workflow
+
+Work starts from a requirement, pasted or attached, never a ticket. Each step is a slash command:
+
+1. `/explore <requirement>` maps it onto the code. No code is written.
+2. `/plan-change` writes the plan and waits for approval.
+3. `/implement` builds the approved plan with its tests.
+4. `/verify` runs every check, the Docker stack, and the Postman collection.
+5. `/review-change` reviews the diff. Fix only the findings the user picks.
+6. `/ship` commits, pushes, and opens the PR. Only when the user asks.
+
+A small task (one service, fewer than three steps, no schema or API contract change) goes straight to `/implement` and `/verify`. Build-plan progress is recorded in `tasks/progress.md`.
 
 ### 1. Plan Mode Default
 
@@ -92,32 +106,15 @@ How to write code in this repository. The goal is code that is correct, simple, 
 - Ruthlessly iterate on these lessons until the mistake rate drops.
 - Review `tasks/lessons.md` at session start for this project.
 
-### 3. Skills usage
+### 3. Skills and subagents
 
-- Use skills for any task that requires a capability.
-- Load skills from `.claude/skills/`.
-- Invoke skills with slash commands or natural language.
-- Each skill is one independent capability.
-- Load domain skills (`fastapi-patterns`, `sqlalchemy-alembic`, `celery-tasks`,
-  `nextjs-shadcn`) when the task needs that knowledge.
+- Load the domain skill before writing code in its area: `fastapi-patterns`, `sqlalchemy-alembic`, `celery-tasks`, `nextjs-shadcn`.
+- `/implement` lists the agents and skills to use for each shape of change.
+- Subagents cost tokens. For single-service work, use the main agent with the domain skill, or one engineer agent. Give each subagent one task.
+- Multi-service design starts with `system-architect`. Review uses `code-reviewer`, plus `security-engineer` for auth, data access, file handling, LLM calls, or infra.
+- `documentation-engineer` brings docs back in line with code. `ui-ux-engineer` reviews first and implements only the findings the user approves.
 
-### 4. Subagents usage
-
-- Load subagents from `.claude/agents/`.
-- Use subagents to keep the main context window clean and to focus one tech stack per
-  agent (e.g. `fastapi-engineer` for API and worker work, `nextjs-engineer` for UI).
-- One task per subagent for focused execution.
-- Subagents increase token usage — for simple single-service work, prefer the matching
-  engineer agent (or main agent + domain skill) instead of spawning many.
-- For multi-service design, start with `system-architect`, then engineer agents per
-  service. For review, use `code-reviewer` and `security-engineer` rather than
-  re-deriving checklists from scratch.
-- Use `documentation-engineer` when docs lag code — in-code docs, feature docs in
-  `docs/`, or README/deploy updates.
-- Use `ui-ux-engineer` for look/feel/accessibility work — it reviews first and
-  implements only human-approved findings, never changing existing behaviour.
-
-### 5. Git branches
+### 4. Git branches
 
 - Never create, switch, or delete git branches yourself. Work on the branch that is
   already checked out; the user manages branches.

@@ -8,9 +8,10 @@ from fastapi import FastAPI, Request, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import Settings
+from app.database import create_database_engine
+from app.database_roles import assert_role_is_subject_to_row_level_security
 from app.health import (
     ReadinessCheck,
     build_health_router,
@@ -60,16 +61,19 @@ def create_app_from_environment() -> FastAPI:
     settings = Settings()  # type: ignore[call-arg]
     configure_logging(settings.log_level)
 
-    engine = create_async_engine(settings.database_url)
+    engine = create_database_engine(settings.database_url)
     redis = Redis.from_url(settings.redis_url)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(READINESS_PROBE_TIMEOUT_SECONDS))
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        yield
-        await http_client.aclose()
-        await redis.aclose()
-        await engine.dispose()
+        try:
+            await assert_role_is_subject_to_row_level_security(engine)
+            yield
+        finally:
+            await http_client.aclose()
+            await redis.aclose()
+            await engine.dispose()
 
     readiness_checks = {
         "postgres": postgres_check(engine),

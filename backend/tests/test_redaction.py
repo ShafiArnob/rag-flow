@@ -50,3 +50,41 @@ def test_redact_value_does_not_mutate_input() -> None:
     redact_value(original)
 
     assert original == {"password": "p"}
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (
+            "connect postgresql+asyncpg://flowbuilder_app:s3cret-Pw_01.~@postgres:5432/app_test",
+            f"connect postgresql+asyncpg://flowbuilder_app:{REDACTED}@postgres:5432/app_test",
+        ),
+        ("redis://:only-a-password@redis:6379/0", f"redis://:{REDACTED}@redis:6379/0"),
+        (
+            "ALTER ROLE flowbuilder_app WITH LOGIN PASSWORD 'it''s-a-secret' failed",
+            f"ALTER ROLE flowbuilder_app WITH LOGIN PASSWORD '{REDACTED}' failed",
+        ),
+        ("create role x password E'abc123'", f"create role x password '{REDACTED}'"),
+        (
+            "[SQL: CREATE ROLE x PASSWORD 'truncated-sec",
+            f"[SQL: CREATE ROLE x PASSWORD '{REDACTED}'",
+        ),
+    ],
+)
+def test_redaction_hides_database_url_credentials_and_password_literals(
+    raw: str, expected: str
+) -> None:
+    assert redact_text(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "harmless",
+    [
+        "readiness probe http://localhost:9000/minio/health/ready failed",
+        "redis://redis:6379/0",
+        "postgresql+asyncpg://postgres:5432/app_test",
+        "password authentication failed for user flowbuilder_app",
+    ],
+)
+def test_redaction_keeps_urls_without_credentials_and_password_prose(harmless: str) -> None:
+    assert redact_text(harmless) == harmless

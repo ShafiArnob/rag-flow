@@ -1,0 +1,11 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/healthz'
+order: 1000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('status is 200', () => pm.response.to.have.status(200));
+      pm.test('body reports the process is alive', () => {
+        pm.expect(pm.response.json()).to.eql({ status: 'ok' });
+      });

@@ -1,0 +1,7 @@
+name: local
+values:
+  - key: base_url
+    value: 'http://localhost:8000'
+    enabled: true
+    type: default
+    description: API base URL of the local Docker Compose stack
