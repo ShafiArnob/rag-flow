@@ -1,0 +1,24 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/readyz'
+order: 2000
+scripts:
+  - type: afterResponse
+    code: |-
+      const DEPENDENCIES = ['postgres', 'redis', 'object_storage'];
+      const body = pm.response.json();
+
+      pm.test('status is 200 when ready, 503 when a dependency is down', () => {
+        pm.expect(pm.response.code).to.be.oneOf([200, 503]);
+      });
+      pm.test('body names every dependency and nothing else', () => {
+        pm.expect(Object.keys(body).sort()).to.eql([...DEPENDENCIES].sort());
+      });
+      pm.test('each dependency is ok or unavailable', () => {
+        Object.values(body).forEach((state) => pm.expect(state).to.be.oneOf(['ok', 'unavailable']));
+      });
+      pm.test('status code agrees with the body', () => {
+        const allOk = Object.values(body).every((state) => state === 'ok');
+        pm.expect(pm.response.code).to.equal(allOk ? 200 : 503);
+      });
+      pm.test('the local stack is ready', () => pm.response.to.have.status(200));

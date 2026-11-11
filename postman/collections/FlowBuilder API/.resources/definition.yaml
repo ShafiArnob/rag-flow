@@ -1,0 +1,3 @@
+$kind: collection
+name: FlowBuilder API
+description: Requests and tests for the FlowBuilder HTTP API. One folder per route group.

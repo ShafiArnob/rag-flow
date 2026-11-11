@@ -1,0 +1,4 @@
+$kind: collection
+name: Health
+description: Liveness and readiness probes.
+order: 1000
