@@ -5,8 +5,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.database_roles import DATABASE_APP_ROLE, DATABASE_OWNER_ROLE
-from schema_expectations import (
+from app.database.roles import DATABASE_APP_ROLE, DATABASE_OWNER_ROLE
+from support.schema_expectations import (
     APP_EXECUTABLE_FUNCTIONS,
     APP_PRIVILEGES,
     EXTRA_POLICIES,

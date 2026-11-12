@@ -5,11 +5,11 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.database_roles import (
+from app.database.roles import (
     DATABASE_OWNER_ROLE,
     assert_role_is_subject_to_row_level_security,
 )
-from database_helpers import PROBE_ROLE, probe_role_engine
+from support.database_helpers import PROBE_ROLE, probe_role_engine
 
 pytestmark = pytest.mark.integration
 

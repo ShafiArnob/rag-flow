@@ -1,6 +1,6 @@
 """Creates the monthly partitions of runs and run_steps up to 12 months ahead.
 
-Run as the schema owner after migrations, on every deploy: ``python -m app.run_partitions``. Each
+Run as the schema owner after migrations, on every deploy: ``python -m app.runs.partitions``. Each
 run moves the horizon forward to the current UTC month plus 12 and leaves existing partitions alone.
 """
 
@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.config import MigrationSettings
-from app.database import create_database_engine
+from app.database.engine import create_database_engine
 
 _CREATE_RUN_PARTITIONS = text("SELECT create_run_partitions()")
 

@@ -5,7 +5,7 @@ description: How FastAPI code is written in this repo (backend/src/app) — app 
 
 # FastAPI patterns for this repo
 
-Read `backend/src/app/main.py` and `backend/src/app/health.py` before writing anything; they are the reference implementation of every rule below.
+Read `backend/src/app/main.py` and `backend/src/app/api/health.py` before writing anything; they are the reference implementation of every rule below.
 
 ## App factory, explicit dependencies
 
@@ -29,7 +29,7 @@ Read `backend/src/app/main.py` and `backend/src/app/health.py` before writing an
 ## Logging and tracing
 
 - Use `logging.getLogger(__name__)` and pass structured fields through `extra={...}`.
-- Never log secrets or raw request bodies. The `RedactionFilter` in `app.logging_config` is a safety net, not permission.
+- Never log secrets or raw request bodies. The `RedactionFilter` in `app.observability.logging_config` is a safety net, not permission.
 - OpenTelemetry is wired in by `FastAPIInstrumentor`; don't add manual spans unless a slow internal step needs one.
 
 ## Tests

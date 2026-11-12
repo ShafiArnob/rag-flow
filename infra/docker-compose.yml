@@ -75,7 +75,7 @@ services:
   # One-shot: creates the extensions and the owner and app roles. Idempotent, so it runs on every up.
   db-bootstrap:
     build: ../backend
-    command: ["python", "-m", "app.database_bootstrap"]
+    command: ["python", "-m", "app.database.bootstrap"]
     environment:
       BOOTSTRAP_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
       DATABASE_OWNER_PASSWORD: ${DATABASE_OWNER_PASSWORD:?}
@@ -86,7 +86,7 @@ services:
   # One-shot: applies migrations as the owner, then moves the 12-month run-partition horizon forward.
   migrate:
     build: ../backend
-    command: ["sh", "-c", "alembic upgrade head && exec python -m app.run_partitions"]
+    command: ["sh", "-c", "alembic upgrade head && exec python -m app.runs.partitions"]
     environment:
       MIGRATION_DATABASE_URL: postgresql+asyncpg://flowbuilder_owner:${DATABASE_OWNER_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
     depends_on:

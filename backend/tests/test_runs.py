@@ -12,10 +12,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app import run_partitions
-from app.database import create_database_engine
-from app.database_roles import DATABASE_APP_ROLE
-from app.tenancy import workspace_transaction
+from app.database.engine import create_database_engine
+from app.database.roles import DATABASE_APP_ROLE
+from app.database.tenancy import workspace_transaction
+from app.runs import partitions as run_partitions
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("schema_at_head")]
 
@@ -72,7 +72,7 @@ async def workflow(app_engine: AsyncEngine) -> Workflow:
 
 @pytest.fixture
 async def maintenance_engine() -> AsyncIterator[AsyncEngine]:
-    """The owner with row_security off, as Alembic and app.run_partitions connect."""
+    """The owner with row_security off, as Alembic and app.runs.partitions connect."""
     engine = create_database_engine(
         SecretStr(os.environ["MIGRATION_DATABASE_URL"]), row_security=False
     )

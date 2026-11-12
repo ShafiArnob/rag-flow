@@ -1,4 +1,4 @@
-"""Shared fixtures. Integration tests expect `python -m app.database_bootstrap` to have run, as
+"""Shared fixtures. Integration tests expect `python -m app.database.bootstrap` to have run, as
 it does in infra/docker-compose.test.yml and CI."""
 
 import os
@@ -15,11 +15,11 @@ from redis.asyncio import Redis
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.database import create_database_engine
+from app.database.engine import create_database_engine
 from app.main import create_app
-from http_users import TwoUsers, signed_up_over_http
-from tenants import TwoTenants, create_tenant
-from unreachable_services import UNREACHABLE_DATABASE_URL, UNREACHABLE_REDIS_URL
+from support.http_users import TwoUsers, signed_up_over_http
+from support.tenants import TwoTenants, create_tenant
+from support.unreachable_services import UNREACHABLE_DATABASE_URL, UNREACHABLE_REDIS_URL
 
 TEST_DATABASE_URL_VARIABLES = ("DATABASE_URL", "MIGRATION_DATABASE_URL", "BOOTSTRAP_DATABASE_URL")
 TEST_DATABASE_NAME_SUFFIX = "_test"

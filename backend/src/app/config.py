@@ -34,7 +34,7 @@ class MigrationSettings(BaseSettings):
 
 
 class BootstrapSettings(BaseSettings):
-    """Configuration for app.database_bootstrap, which connects as the superuser."""
+    """Configuration for app.database.bootstrap, which connects as the superuser."""
 
     model_config = SettingsConfigDict(extra="ignore", hide_input_in_errors=True)
 

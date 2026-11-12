@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 from opentelemetry import trace
 
-from app.redaction import REDACTED, is_sensitive_key, redact_text, redact_value
+from app.observability.redaction import REDACTED, is_sensitive_key, redact_text, redact_value
 
 _STANDARD_RECORD_FIELDS = frozenset(
     logging.LogRecord("", logging.INFO, "", 0, "", (), None).__dict__

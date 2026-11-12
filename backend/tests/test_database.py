@@ -4,7 +4,7 @@ import pytest
 from pydantic import SecretStr
 from sqlalchemy import text
 
-from app.database import create_database_engine
+from app.database.engine import create_database_engine
 
 pytestmark = pytest.mark.integration
 

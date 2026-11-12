@@ -20,7 +20,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.main import create_app
-from auth_client import (
+from support.auth_client import (
     AUDIT_ENTRIES,
     BASE_URL,
     LOOPBACK_ADDRESS,
@@ -37,7 +37,7 @@ from auth_client import (
     sessions_in_workspace,
     sign_up,
 )
-from tenants import create_tenant
+from support.tenants import create_tenant
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("schema_at_head")]
 
@@ -415,7 +415,7 @@ async def test_failed_logins_log_neither_the_email_nor_the_password(
     assert_invalid_credentials(await log_in(client, unknown_email, unknown_email_password))
 
     # The negative control: the failures were logged.
-    failures = [record for record in caplog.records if record.name == "app.auth"]
+    failures = [record for record in caplog.records if record.name == "app.identity.service"]
     assert [record.levelno for record in failures] == [logging.WARNING, logging.WARNING]
     logged = "\n".join(str(vars(record)) for record in caplog.records)
     for value in (signed_up.email, unknown_email, wrong_password, unknown_email_password):

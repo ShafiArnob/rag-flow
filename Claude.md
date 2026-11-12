@@ -32,6 +32,40 @@ How to write code in this repository. The goal is code that is correct, simple, 
 
 - Build the UI from shadcn/ui components everywhere. Write a custom component only when shadcn/ui has none that fits.
 
+## Backend layout
+
+This is the layout for `backend/src/app/`. Packages marked with a subphase do not exist yet; create each when that subphase starts.
+
+```
+backend/src/app/
+├── main.py              # app factory: wires routers and dependencies
+├── config.py
+├── worker.py            # Celery app only; tasks live in their feature package
+├── api/                 # HTTP edge: routers and request/response schemas, no business logic
+│   ├── health.py
+│   ├── auth.py
+│   ├── connectors.py
+│   ├── workflows.py
+│   └── runs.py
+├── observability/       # logging_config.py, telemetry.py, redaction.py
+├── database/            # engine.py, bootstrap.py, roles.py, tenancy.py, seed.py
+├── identity/            # passwords.py, sessions.py, authentication.py, login_rate_limit.py, service.py
+├── audit.py
+├── crypto/              # P01_S05: envelope.py, key_provider.py
+├── egress/              # P01_S06: guarded HTTP client and allowlist policy
+├── connectors/          # P01_S07: registry.py, repository.py, service.py
+├── nodes/               # P01_S08: contract.py, registry.py, builtin/
+├── workflows/           # P01_S11: graph.py, compiler.py, repository.py
+└── runs/                # P01_S11: runner.py, partitions.py, tasks.py
+```
+
+- Group code by feature. Each package owns one feature's logic, data access, and Celery tasks.
+- Keep `api/` thin. A router validates the request, calls the feature package, and shapes the response.
+- Create a package when its feature's work starts. Don't create empty placeholder packages.
+- Don't create `utils/`, `helpers/`, or `common/` packages. Put a helper in the package that uses it, or in a module named for what it does.
+- Keep a feature in one module until it outgrows it, then turn it into a package.
+- In `backend/tests/`, put shared fixtures and helpers in `tests/support/`. Mirror the source packages as features grow, for example `tests/identity/`.
+
 ## Readability
 
 - Use names that say what a thing is or does, without abbreviations. Booleans read as predicates: `is_ready`, `has_access`.

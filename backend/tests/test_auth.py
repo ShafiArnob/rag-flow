@@ -16,16 +16,16 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.authentication import CSRF_HEADER_NAME, SESSION_COOKIE_NAME
-from app.main import create_app
-from app.sessions import (
+from app.identity.authentication import CSRF_HEADER_NAME, SESSION_COOKIE_NAME
+from app.identity.sessions import (
     SESSION_LIFETIME,
     SESSION_REFRESH_INTERVAL,
     encode_session_cookie,
     new_csrf_token,
     new_session_token,
 )
-from auth_client import (
+from app.main import create_app
+from support.auth_client import (
     AUDIT_ENTRIES,
     BASE_URL,
     PEER_PORT,

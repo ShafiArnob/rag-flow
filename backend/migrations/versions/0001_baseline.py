@@ -3,7 +3,7 @@
 P01_S03 extends these tables with row-level security and adds the rest of the core schema.
 
 This revision used to create the vector and citext extensions. P01_S03 moved that to
-``app.database_bootstrap``, because migrations now run as a role that is not a superuser, and only a
+``app.database.bootstrap``, because migrations now run as a role that is not a superuser, and only a
 superuser can create vector or drop either extension. Editing this merged revision was a one-time
 exception approved in the P01_S03 plan.
 

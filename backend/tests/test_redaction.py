@@ -1,6 +1,6 @@
 import pytest
 
-from app.redaction import REDACTED, redact_text, redact_value
+from app.observability.redaction import REDACTED, redact_text, redact_value
 
 
 @pytest.mark.parametrize(

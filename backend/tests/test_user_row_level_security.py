@@ -12,14 +12,14 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
-from app.database import create_database_engine
-from app.tenancy import (
+from app.database.engine import create_database_engine
+from app.database.tenancy import (
     login_transaction,
     member_transaction,
     user_transaction,
     workspace_transaction,
 )
-from tenants import TwoTenants
+from support.tenants import TwoTenants
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("schema_at_head")]
 

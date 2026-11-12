@@ -22,7 +22,7 @@ The frontend is at <http://localhost:3000> and the API at <http://localhost:8000
 To load the demo user and workspace:
 
 ```sh
-docker compose --env-file .env -f infra/docker-compose.yml exec api python -m app.seed
+docker compose --env-file .env -f infra/docker-compose.yml exec api python -m app.database.seed
 ```
 
 ## Start, stop and rebuild

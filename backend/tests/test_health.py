@@ -11,11 +11,11 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from pydantic import SecretStr
 from redis.asyncio import Redis
 
-from app.database import create_database_engine
-from app.health import ReadinessCheck
-from app.logging_config import JsonFormatter, RedactionFilter
+from app.api.health import ReadinessCheck
+from app.database.engine import create_database_engine
 from app.main import create_app
-from unreachable_services import UNREACHABLE_DATABASE_URL, UNREACHABLE_REDIS_URL
+from app.observability.logging_config import JsonFormatter, RedactionFilter
+from support.unreachable_services import UNREACHABLE_DATABASE_URL, UNREACHABLE_REDIS_URL
 
 
 async def healthy() -> None:

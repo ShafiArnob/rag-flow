@@ -14,9 +14,9 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.authentication import SESSION_COOKIE_NAME
+from app.identity.authentication import SESSION_COOKIE_NAME
+from app.identity.sessions import SessionCookie, decode_session_cookie
 from app.main import create_app
-from app.sessions import SessionCookie, decode_session_cookie
 
 # https, so the client's cookie jar stores and returns Secure cookies.
 BASE_URL = "https://test"

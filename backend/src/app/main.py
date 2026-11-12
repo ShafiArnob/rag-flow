@@ -12,22 +12,22 @@ from opentelemetry.sdk.trace import TracerProvider
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.auth import build_auth_router
-from app.authentication import build_session_dependency
-from app.config import Settings
-from app.database import create_database_engine
-from app.database_roles import assert_role_is_subject_to_row_level_security
-from app.health import (
+from app.api.auth import build_auth_router
+from app.api.health import (
     ReadinessCheck,
     build_health_router,
     object_storage_check,
     postgres_check,
     redis_check,
 )
-from app.logging_config import configure_logging
-from app.login_rate_limit import LoginRateLimiter
-from app.passwords import PasswordHasher
-from app.telemetry import build_tracer_provider
+from app.config import Settings
+from app.database.engine import create_database_engine
+from app.database.roles import assert_role_is_subject_to_row_level_security
+from app.identity.authentication import build_session_dependency
+from app.identity.login_rate_limit import LoginRateLimiter
+from app.identity.passwords import PasswordHasher
+from app.observability.logging_config import configure_logging
+from app.observability.telemetry import build_tracer_provider
 
 logger = logging.getLogger("app.access")
 startup_logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 
-from app.sessions import (
+from app.identity.sessions import (
     SessionCookie,
     decode_session_cookie,
     encode_session_cookie,

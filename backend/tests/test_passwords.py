@@ -5,7 +5,7 @@ import argon2
 import pytest
 from argon2.exceptions import InvalidHashError, VerificationError
 
-from app.passwords import MAX_CONCURRENT_HASHES, PasswordHasher
+from app.identity.passwords import MAX_CONCURRENT_HASHES, PasswordHasher
 
 PASSWORD = "correct horse battery staple"  # noqa: S105 - a fake value for hashing tests
 FAKE_HASH = "fake-argon2-hash"

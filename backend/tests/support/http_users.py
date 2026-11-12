@@ -10,8 +10,8 @@ import httpx
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.sessions import SessionCookie
-from auth_client import client_for, new_peer_address, sign_up
+from app.identity.sessions import SessionCookie
+from support.auth_client import client_for, new_peer_address, sign_up
 
 
 @dataclass(frozen=True)

@@ -10,7 +10,8 @@ from typing import Annotated, Literal
 from fastapi import Cookie, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.sessions import (
+from app.database.tenancy import workspace_transaction
+from app.identity.sessions import (
     SESSION_LIFETIME,
     SessionCookie,
     decode_session_cookie,
@@ -19,7 +20,6 @@ from app.sessions import (
     find_session,
     hash_session_token,
 )
-from app.tenancy import workspace_transaction
 
 SESSION_COOKIE_NAME = "flowbuilder_session"
 CSRF_HEADER_NAME = "X-CSRF-Token"

@@ -9,8 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.audit import AuditAction, record_audit_event
-from app.tenancy import workspace_transaction
-from tenants import TwoTenants
+from app.database.tenancy import workspace_transaction
+from support.tenants import TwoTenants
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("schema_at_head")]
 

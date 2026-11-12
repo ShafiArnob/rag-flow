@@ -26,7 +26,7 @@ Schema changes are a public contract: per CLAUDE.md, plan them and get approval 
 
 - Async engine from `sqlalchemy.ext.asyncio.create_async_engine(settings.database_url)`. Pass the engine (or a session) into functions explicitly; no module-level engine.
 - Use `text("... :name ...")` with a parameter dict, or SQLAlchemy Core/ORM constructs. Never interpolate values into SQL. The only f-string SQL allowed is a fixed identifier in test code, marked `# noqa: S608`.
-- Writes that must be idempotent use `INSERT ... ON CONFLICT ... DO NOTHING / DO UPDATE` (see `app/seed.py`).
+- Writes that must be idempotent use `INSERT ... ON CONFLICT ... DO NOTHING / DO UPDATE` (see `app/database/seed.py`).
 - Use `engine.begin()` for a unit of work that commits; `engine.connect()` for reads.
 
 ## Tests

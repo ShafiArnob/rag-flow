@@ -17,17 +17,17 @@ from fastapi import FastAPI
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.authentication import CSRF_HEADER_NAME
-from app.sessions import SessionCookie, encode_session_cookie
-from auth_client import (
+from app.identity.authentication import CSRF_HEADER_NAME
+from app.identity.sessions import SessionCookie, encode_session_cookie
+from support.auth_client import (
     assert_csrf_token_invalid,
     assert_not_authenticated,
     client_for,
     cookie_header,
     new_peer_address,
 )
-from http_users import HttpUser, TwoUsers
-from public_routes import protected_routes
+from support.http_users import HttpUser, TwoUsers
+from support.public_routes import protected_routes
 
 
 @dataclass(frozen=True)

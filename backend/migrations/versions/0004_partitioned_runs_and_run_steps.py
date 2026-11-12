@@ -17,7 +17,7 @@ Revises: 0003
 
 from alembic import op
 
-from app.database_roles import DATABASE_APP_ROLE
+from app.database.roles import DATABASE_APP_ROLE
 
 revision = "0004"
 down_revision = "0003"
@@ -94,7 +94,7 @@ def upgrade() -> None:
         """
     )
     # Covers the current UTC month and the 12 after it, and skips partitions that exist, so
-    # app.run_partitions can call it on every deploy to move the horizon forward. The pinned
+    # app.runs.partitions can call it on every deploy to move the horizon forward. The pinned
     # TimeZone makes the month bounds UTC whatever the caller's session uses; the pinned
     # search_path keeps the unqualified names resolving to these tables.
     op.execute(

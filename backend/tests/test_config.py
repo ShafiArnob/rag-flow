@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.config import BootstrapSettings, Settings
-from settings_environment import set_settings_environment
+from support.settings_environment import set_settings_environment
 
 SAFE_PASSWORD = "safe-Password_0123.~"  # noqa: S105 - a fake value for validation tests
 

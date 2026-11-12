@@ -12,8 +12,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
-from app.database import create_database_engine
-from app.tenancy import (
+from app.database.engine import create_database_engine
+from app.database.tenancy import (
     login_transaction,
     member_transaction,
     user_transaction,
@@ -22,7 +22,7 @@ from app.tenancy import (
 
 BACKEND_DIRECTORY = Path(__file__).parent.parent
 SCANNED_DIRECTORIES = (BACKEND_DIRECTORY / "src", BACKEND_DIRECTORY / "migrations")
-TENANCY_MODULE = BACKEND_DIRECTORY / "src" / "app" / "tenancy.py"
+TENANCY_MODULE = BACKEND_DIRECTORY / "src" / "app" / "database" / "tenancy.py"
 
 # Any of these could set an app.* setting for the whole session, which then survives the commit and
 # reaches the next user of the pooled connection.
@@ -55,7 +55,7 @@ NO_SETTINGS = Settings()
 
 TransactionOpener = Callable[[AsyncEngine], AbstractAsyncContextManager[AsyncConnection]]
 
-# Every transaction app.tenancy offers, with the settings it must apply and nothing more.
+# Every transaction app.database.tenancy offers, with the settings it must apply and nothing more.
 TRANSACTIONS: dict[str, tuple[TransactionOpener, Settings]] = {
     "workspace": (
         lambda engine: workspace_transaction(engine, WORKSPACE_ID),
@@ -124,7 +124,7 @@ async def test_new_and_reused_pooled_connections_carry_no_settings(
 
 def test_settings_are_only_set_by_tenancy_module() -> None:
     assert SETTING_WRITE.search(TENANCY_MODULE.read_text(encoding="utf-8")), (
-        "the scan no longer matches how app.tenancy sets who a transaction acts for"
+        "the scan no longer matches how app.database.tenancy sets who a transaction acts for"
     )
     offenders: list[str] = []
     for directory in SCANNED_DIRECTORIES:
@@ -135,4 +135,4 @@ def test_settings_are_only_set_by_tenancy_module() -> None:
             for match in SETTING_WRITE.finditer(source):
                 line_number = source.count("\n", 0, match.start()) + 1
                 offenders.append(f"{path.relative_to(BACKEND_DIRECTORY)}:{line_number}")
-    assert offenders == [], "only app/tenancy.py may set an app.* setting"
+    assert offenders == [], "only app/database/tenancy.py may set an app.* setting"

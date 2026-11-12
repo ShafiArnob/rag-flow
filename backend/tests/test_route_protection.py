@@ -8,10 +8,15 @@ from fastapi import FastAPI, WebSocket
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.authentication import CSRF_HEADER_NAME, CSRF_PROTECTED_METHODS
-from app.sessions import new_csrf_token
-from auth_client import client_for, sign_up
-from public_routes import UnclassifiedRouteError, concrete_path, protected_routes, served_routes
+from app.identity.authentication import CSRF_HEADER_NAME, CSRF_PROTECTED_METHODS
+from app.identity.sessions import new_csrf_token
+from support.auth_client import client_for, sign_up
+from support.public_routes import (
+    UnclassifiedRouteError,
+    concrete_path,
+    protected_routes,
+    served_routes,
+)
 
 
 def test_logout_and_me_are_protected(app_without_database: FastAPI) -> None:

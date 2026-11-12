@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from app.login_rate_limit import email_account_key, lockout_seconds, user_account_key
+from app.identity.login_rate_limit import email_account_key, lockout_seconds, user_account_key
 
 
 @pytest.mark.parametrize(

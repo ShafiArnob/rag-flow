@@ -13,15 +13,15 @@ from alembic.script import ScriptDirectory
 from pydantic import SecretStr
 from sqlalchemy import text
 
-from app.database import create_database_engine
-from app.seed import (
+from app.database.engine import create_database_engine
+from app.database.seed import (
     DEMO_USER_EMAIL,
     DEMO_USER_ID,
     DEMO_WORKSPACE_ID,
     DEMO_WORKSPACE_NAME,
     seed_demo_data,
 )
-from app.tenancy import member_transaction
+from app.database.tenancy import member_transaction
 
 pytestmark = pytest.mark.integration
 

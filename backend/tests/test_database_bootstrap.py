@@ -7,10 +7,10 @@ from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.database import create_database_engine
-from app.database_bootstrap import bootstrap_database
-from app.database_roles import DATABASE_APP_ROLE, DATABASE_OWNER_ROLE
-from database_helpers import PROBE_ROLE, database_url_with, probe_role_engine
+from app.database.bootstrap import bootstrap_database
+from app.database.engine import create_database_engine
+from app.database.roles import DATABASE_APP_ROLE, DATABASE_OWNER_ROLE
+from support.database_helpers import PROBE_ROLE, database_url_with, probe_role_engine
 
 pytestmark = pytest.mark.integration
 

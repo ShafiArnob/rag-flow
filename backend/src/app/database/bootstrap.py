@@ -1,6 +1,6 @@
 """Creates the extensions and database roles that migrations and the application rely on.
 
-Run as the superuser before migrations: ``python -m app.database_bootstrap``. It runs in one
+Run as the superuser before migrations: ``python -m app.database.bootstrap``. It runs in one
 transaction and is idempotent: each run re-asserts the role attributes and passwords, and clears
 any per-role settings, so a failure leaves the database as it was.
 """
@@ -13,8 +13,8 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from app.config import BootstrapSettings
-from app.database import create_database_engine
-from app.database_roles import DATABASE_APP_ROLE, DATABASE_OWNER_ROLE
+from app.database.engine import create_database_engine
+from app.database.roles import DATABASE_APP_ROLE, DATABASE_OWNER_ROLE
 
 _CURRENT_ROLE = text(
     "SELECT rolname AS role_name, rolsuper AS is_superuser FROM pg_roles"

@@ -11,9 +11,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.tenancy import workspace_transaction
-from schema_expectations import RLS_EXEMPT_TABLES, USER_SCOPED_TABLES, workspace_key_column
-from tenants import SESSION_TOKEN_HASH_BYTES, Tenant, TwoTenants
+from app.database.tenancy import workspace_transaction
+from support.schema_expectations import RLS_EXEMPT_TABLES, USER_SCOPED_TABLES, workspace_key_column
+from support.tenants import SESSION_TOKEN_HASH_BYTES, Tenant, TwoTenants
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("schema_at_head")]
 

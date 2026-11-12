@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.database import create_database_engine
+from app.database.engine import create_database_engine
 
 PROBE_ROLE = "flowbuilder_test_probe"
 

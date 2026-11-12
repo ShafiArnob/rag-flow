@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.tenancy import workspace_transaction
+from app.database.tenancy import workspace_transaction
 
 SESSION_TOKEN_HASH_BYTES = 32
 SECRET_NONCE_BYTES = 12

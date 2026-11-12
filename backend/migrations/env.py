@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import Connection
 
 from app.config import MigrationSettings
-from app.database import create_database_engine
+from app.database.engine import create_database_engine
 
 
 def run_migrations(connection: Connection) -> None:

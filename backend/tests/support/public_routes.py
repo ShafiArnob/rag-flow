@@ -7,7 +7,7 @@ import uuid
 from fastapi import FastAPI
 from fastapi.routing import iter_route_contexts
 
-from app.authentication import CSRF_PROTECTED_METHODS
+from app.identity.authentication import CSRF_PROTECTED_METHODS
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 

@@ -15,7 +15,7 @@ Audit the change you're given (default: `git diff main...HEAD`), and read whatev
 - **Tenant isolation**: every query on tenant-owned data is scoped to the caller's workspace; ids from the client are never trusted to imply access. Note where row-level security should apply.
 - **Injection**: SQL built from strings, shell commands built from strings, unsafe deserialisation, path traversal in file or object-storage keys.
 - **Untrusted content**: uploaded files (type, size, parser safety), third-party responses, and model output. Model output and retrieved documents are data, never instructions or code — flag any place they reach a shell, SQL, HTML without escaping, or a tool call without validation (prompt injection).
-- **Secrets**: read from the environment only; never committed, never logged. Check log calls and exception messages against `app/redaction.py` and `app/logging_config.py`.
+- **Secrets**: read from the environment only; never committed, never logged. Check log calls and exception messages against `app/observability/redaction.py` and `app/observability/logging_config.py`.
 - **AuthN/AuthZ**: session and token handling, password hashing, missing permission checks on new routes.
 - **Frontend**: XSS via `dangerouslySetInnerHTML` or unescaped content, secrets in client bundles (`NEXT_PUBLIC_*`), CSRF on state-changing requests.
 - **Infra**: containers running as root, published ports beyond what's needed, default credentials, missing resource limits, images without pinned versions.

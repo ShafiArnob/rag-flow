@@ -15,7 +15,7 @@ Revises: 0001
 
 from alembic import op
 
-from app.database_roles import DATABASE_APP_ROLE
+from app.database.roles import DATABASE_APP_ROLE
 
 revision = "0002"
 down_revision = "0001"

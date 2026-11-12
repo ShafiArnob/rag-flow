@@ -52,7 +52,7 @@ jobs:
       - run: uv run ruff check .
       - run: uv run mypy
       - name: Create the database roles and extensions
-        run: uv run python -m app.database_bootstrap
+        run: uv run python -m app.database.bootstrap
       # Includes the node contract tests (marker `contract`, added in P01_S08).
       - run: uv run pytest
 

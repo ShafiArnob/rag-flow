@@ -5,8 +5,8 @@ from collections.abc import Iterator
 
 import pytest
 
-from app.logging_config import JsonFormatter, RedactionFilter
-from app.redaction import REDACTED
+from app.observability.logging_config import JsonFormatter, RedactionFilter
+from app.observability.redaction import REDACTED
 
 
 @pytest.fixture

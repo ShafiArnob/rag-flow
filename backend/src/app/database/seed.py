@@ -10,9 +10,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.config import Settings
-from app.database import create_database_engine
-from app.database_roles import assert_role_is_subject_to_row_level_security
-from app.tenancy import member_transaction
+from app.database.engine import create_database_engine
+from app.database.roles import assert_role_is_subject_to_row_level_security
+from app.database.tenancy import member_transaction
 
 DEMO_WORKSPACE_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
 DEMO_USER_ID = uuid.UUID("00000000-0000-4000-8000-000000000002")
