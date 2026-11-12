@@ -29,4 +29,6 @@ USER flowbuilder
 # Production image. Keep this stage last so a build without a target produces it.
 FROM base AS production
 USER flowbuilder
-CMD ["uvicorn", "--factory", "app.main:create_app_from_environment", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+# --no-proxy-headers: uvicorn otherwise takes the client address from X-Forwarded-For, which any
+# client can set, and the audit log records that address. tests/test_main.py pins it.
+CMD ["uvicorn", "--factory", "app.main:create_app_from_environment", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--no-proxy-headers"]

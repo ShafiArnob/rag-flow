@@ -15,6 +15,8 @@ pytestmark = pytest.mark.integration
 
 GUARD_PROBE_TABLE = "rls_guard_probe"
 PROBE_WORKSPACE_ID = "00000000-0000-4000-8000-000000000001"
+PROBE_USER_ID = "00000000-0000-4000-8000-000000000002"
+PROBE_LOGIN_EMAIL = "probe@example.test"
 
 
 async def test_guard_accepts_app_role(app_engine: AsyncEngine) -> None:
@@ -55,9 +57,17 @@ async def test_guard_rejects_superuser_owner_and_member_of_owner(
             f"ALTER ROLE {PROBE_ROLE} SET app.workspace_id = '{PROBE_WORKSPACE_ID}'",
             "sees app.workspace_id already set on a new connection",
         ),
+        (
+            f"ALTER ROLE {PROBE_ROLE} SET app.user_id = '{PROBE_USER_ID}'",
+            "sees app.user_id already set on a new connection",
+        ),
+        (
+            f"ALTER ROLE {PROBE_ROLE} SET app.login_email = '{PROBE_LOGIN_EMAIL}'",
+            "sees app.login_email already set on a new connection",
+        ),
     ],
 )
-async def test_guard_rejects_role_that_bypasses_rls_or_starts_with_a_workspace(
+async def test_guard_rejects_role_that_bypasses_rls_or_starts_with_a_tenancy_setting(
     superuser_engine: AsyncEngine, setup_statement: str, failed_check: str
 ) -> None:
     async with probe_role_engine(superuser_engine, setup_statement) as probe:

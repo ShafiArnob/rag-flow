@@ -1,5 +1,5 @@
 """The catalog at head: every table is protected by row-level security or declared exempt, and every
-privilege, owner and function matches schema_expectations."""
+policy, privilege, owner and function matches schema_expectations."""
 
 import pytest
 from sqlalchemy import text
@@ -11,6 +11,7 @@ from schema_expectations import (
     APP_PRIVILEGES,
     EXTRA_POLICIES,
     RLS_EXEMPT_TABLES,
+    USER_SCOPED_TABLES,
     GrantedPrivileges,
     tenant_policy_expression,
 )
@@ -114,12 +115,9 @@ async def test_every_relation_is_rls_protected_or_declared_exempt(
         if table.relname in protected and not (table.relrowsecurity and table.relforcerowsecurity)
     ] == []
 
+    assert set(USER_SCOPED_TABLES) <= set(protected), "a user-scoped table no longer exists"
+    assert set(USER_SCOPED_TABLES) <= set(EXTRA_POLICIES), "a user-scoped table has no policy"
     tenant_policies = {
-        tuple(policy)
-        for policy in policies
-        if policy.policyname not in EXTRA_POLICIES.get(policy.tablename, frozenset())
-    }
-    assert tenant_policies == {
         (
             table,
             f"{table}_tenant",
@@ -130,7 +128,22 @@ async def test_every_relation_is_rls_protected_or_declared_exempt(
             tenant_policy_expression(table),
         )
         for table in protected
+        if table not in USER_SCOPED_TABLES
     }
+    extra_policies = {
+        (
+            table,
+            policy.name,
+            "PERMISSIVE",
+            "{public}",
+            policy.command,
+            policy.using,
+            policy.with_check,
+        )
+        for table, table_policies in EXTRA_POLICIES.items()
+        for policy in table_policies
+    }
+    assert {tuple(policy) for policy in policies} == tenant_policies | extra_policies
 
 
 async def test_partitions_enable_rls_and_grant_app_nothing(owner_engine: AsyncEngine) -> None:

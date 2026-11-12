@@ -36,24 +36,75 @@ APP_PRIVILEGES = {
     "run_steps": GrantedPrivileges(frozenset({"SELECT", "INSERT", "UPDATE"})),
 }
 
+
+@dataclass(frozen=True)
+class Policy:
+    """A permissive policy for every role, with its expressions as pg_policies prints them."""
+
+    name: str
+    command: str
+    using: str | None
+    with_check: str | None
+
+
 # Functions in schema public, outside extensions, that the application role may execute.
 APP_EXECUTABLE_FUNCTIONS = {
     "app_current_workspace_id": "every tenant policy calls it as the querying role",
+    "app_current_user_id": "the user-scoped policies call it as the querying role",
+    "app_login_email": "the users_select policy calls it as the querying role",
 }
 
 # Tables without row-level security, each with the reason it is safe.
 RLS_EXEMPT_TABLES = {
-    "users": (
-        "has no workspace key; a user can belong to several workspaces. P01_S04 adds user-scoped"
-        " policies"
-    ),
     "alembic_version": (
         "holds only the schema revision, and the application role has no grant on it"
     ),
 }
 
-# Policies beyond the single <table>_tenant policy, by table, each needing its own isolation story.
-EXTRA_POLICIES: dict[str, frozenset[str]] = {}
+# Tables with row-level security but no <table>_tenant policy, each with the reason. Their policies
+# are all declared in EXTRA_POLICIES.
+USER_SCOPED_TABLES = {
+    "users": (
+        "has no workspace key; a user can belong to several workspaces. A row is visible only to"
+        " its own user, or to a login that names its exact email"
+    ),
+}
+
+_ACTS_FOR_ROW_USER = "(id = app_current_user_id())"
+
+# Every policy beyond the single <table>_tenant policy, by table. Each needs its own isolation
+# story, told by tests/test_user_row_level_security.py.
+EXTRA_POLICIES = {
+    "users": frozenset(
+        {
+            Policy(
+                "users_select",
+                "SELECT",
+                using="((id = app_current_user_id()) OR (email = app_login_email()))",
+                with_check=None,
+            ),
+            # Signup creates a user before anyone is logged in.
+            Policy("users_insert", "INSERT", using=None, with_check="true"),
+            Policy(
+                "users_update_self",
+                "UPDATE",
+                using=_ACTS_FOR_ROW_USER,
+                with_check=_ACTS_FOR_ROW_USER,
+            ),
+        }
+    ),
+    # Login finds the user's workspace before it can act in one.
+    "workspace_members": frozenset(
+        {
+            Policy(
+                "workspace_members_self",
+                "SELECT",
+                using="(user_id = app_current_user_id())",
+                with_check=None,
+            ),
+        }
+    ),
+}
 
 WORKSPACE_KEY_COLUMN = "workspace_id"
 # A workspace is its own tenant, so its policy compares its id.

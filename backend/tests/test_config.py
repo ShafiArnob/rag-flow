@@ -1,9 +1,31 @@
 import pytest
 from pydantic import ValidationError
 
-from app.config import BootstrapSettings
+from app.config import BootstrapSettings, Settings
+from settings_environment import set_settings_environment
 
 SAFE_PASSWORD = "safe-Password_0123.~"  # noqa: S105 - a fake value for validation tests
+
+
+def test_settings_require_session_cookie_secure(monkeypatch: pytest.MonkeyPatch) -> None:
+    set_settings_environment(monkeypatch)
+    monkeypatch.delenv("SESSION_COOKIE_SECURE", raising=False)
+
+    with pytest.raises(ValidationError) as raised:
+        Settings()  # type: ignore[call-arg]
+
+    assert [error["loc"] for error in raised.value.errors()] == [("session_cookie_secure",)]
+    assert raised.value.errors()[0]["type"] == "missing"
+
+
+@pytest.mark.parametrize(("value", "expected"), [("true", True), ("false", False)])
+def test_settings_read_session_cookie_secure(
+    monkeypatch: pytest.MonkeyPatch, value: str, expected: bool
+) -> None:
+    set_settings_environment(monkeypatch)
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", value)
+
+    assert Settings().session_cookie_secure is expected  # type: ignore[call-arg]
 
 
 def set_bootstrap_environment(

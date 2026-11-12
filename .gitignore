@@ -9,3 +9,4 @@ node_modules/
 *.tsbuildinfo
 docs/workflow.md
 docs/runner-contract.md
+postman

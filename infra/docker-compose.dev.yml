@@ -20,6 +20,9 @@ services:
       - --port
       - "8000"
       - --no-access-log
+      # As in backend/Dockerfile: the login rate limit and the audit log use the peer address,
+      # which uvicorn would otherwise take from X-Forwarded-For.
+      - --no-proxy-headers
       - --reload
       - --reload-dir
       - /app/src

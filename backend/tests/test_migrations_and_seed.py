@@ -14,15 +14,21 @@ from pydantic import SecretStr
 from sqlalchemy import text
 
 from app.database import create_database_engine
-from app.seed import DEMO_USER_EMAIL, DEMO_WORKSPACE_ID, DEMO_WORKSPACE_NAME, seed_demo_data
-from app.tenancy import workspace_transaction
+from app.seed import (
+    DEMO_USER_EMAIL,
+    DEMO_USER_ID,
+    DEMO_WORKSPACE_ID,
+    DEMO_WORKSPACE_NAME,
+    seed_demo_data,
+)
+from app.tenancy import member_transaction
 
 pytestmark = pytest.mark.integration
 
 ALEMBIC_INI = Path(__file__).parent.parent / "alembic.ini"
 
 # Every revision in order, from base. Add each new revision here; the step test fails until you do.
-REVISION_STEPS = ("base", "0001", "0002", "0003", "0004")
+REVISION_STEPS = ("base", "0001", "0002", "0003", "0004", "0005")
 
 SEEDED_TABLES = ("workspaces", "users", "workspace_members")
 
@@ -139,7 +145,8 @@ async def seed_twice_as_app_role() -> list[tuple[object, ...]]:
     try:
         await seed_demo_data(engine)
         await seed_demo_data(engine)
-        async with workspace_transaction(engine, DEMO_WORKSPACE_ID) as connection:
+        # A user row is visible only to its own user, so the join needs the demo user as well.
+        async with member_transaction(engine, DEMO_WORKSPACE_ID, DEMO_USER_ID) as connection:
             members = await connection.execute(
                 text(
                     "SELECT u.email, w.name FROM workspace_members m"
