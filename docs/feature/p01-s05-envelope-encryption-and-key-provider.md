@@ -18,19 +18,34 @@
 5. **Rotate the master key.** An operator puts the new key first in the keyring. `rewrap_data_keys` connects as the schema owner and works in batches of 100, locking rows with `FOR UPDATE`. It unwraps each old DEK and wraps it under the active key, and changes only `wrapped_dek` and `key_id`.
 6. **Report.** The CLI prints `rewrapped N data keys to <key_id>; M remain under other keys`. It exits 1 while rows remain, or on an unreadable row or a provider that breaks its contract.
 
-## Visual
-
 ```mermaid
-flowchart TB
-  Caller["Caller (P01_S07 connectors)"] -->|"put / get / rotate"| Service["SecretService"]
-  Operator["flowbuilder keys rotate"] --> Rewrap["rewrap_data_keys"]
-  Service -->|"seal / open"| Envelope["envelope.py (AES-256-GCM)"]
-  Service -->|"wrap / unwrap DEK"| Provider["LocalKeyProvider"]
-  Service -->|"workspace transaction"| Secrets[("secrets table")]
-  Rewrap -->|"unwrap old, wrap active"| Provider
-  Rewrap -->|"owner role, FOR UPDATE batches"| Secrets
-  Keyring[("MASTER_KEYS")] --> Provider
+flowchart LR
+  caller["<b>Connectors</b><br/><small>P01_S07, not built yet</small>"]:::planned
+  service["<b>SecretService</b><br/><small>put · get · rotate</small>"]:::focus
+  envelope["<b>envelope.py</b><br/><small>AES-256-GCM, one DEK per value</small>"]
+  provider["<b>LocalKeyProvider</b><br/><small>wraps the DEK under the KEK</small>"]
+  keyring["<b>MASTER_KEYS</b><br/><small>keyring · first key is active</small>"]:::external
+  secrets[("<b>secrets</b><br/><small>ciphertext · wrapped_dek · key_id</small>")]:::store
+  caller -->|"put / get / rotate"| service
+  service -->|"seal / open"| envelope
+  service -->|"wrap / unwrap"| provider
+  provider -->|"KEKs from"| keyring
+  service -->|"workspace_transaction"| secrets
 ```
+
+Figure 1. Storing and reading a secret. Dashed: a caller that does not exist yet. Green: the only place a secret is stored.
+
+Rotating the master key is a separate, operator-run path:
+
+```steps
+New key first | MASTER_KEYS | The operator puts the new key at the front of the keyring and keeps the old ones.
+Lock a batch | rewrap_data_keys | As the owner role, selects 100 rows not under the active key, `FOR UPDATE`.
+Re-wrap | LocalKeyProvider | Unwraps each DEK with the row's `key_id` and wraps it under the active key.
+Write keys only | secrets | Updates `wrapped_dek` and `key_id`. The ciphertext never changes.
+Report | flowbuilder keys rotate | Prints the count. Exits 1 while rows remain under other keys.
+```
+
+Figure 2. Master-key rotation. Batches repeat until no row is left under an old key, so a rerun picks up where an interrupted one stopped.
 
 The rotation only ever reads and writes the key columns:
 
