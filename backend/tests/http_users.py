@@ -11,8 +11,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.sessions import SessionCookie
-from test_auth import client_for, sign_up
-from test_login import new_peer_address
+from auth_client import client_for, new_peer_address, sign_up
 
 
 @dataclass(frozen=True)

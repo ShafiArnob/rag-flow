@@ -225,6 +225,8 @@ def build_auth_router(
                 extra={"user_id": None if account is None else str(account.id)},
             )
             raise _invalid_credentials()
+        # Before any write, so a Redis failure here leaves neither a session nor a login audit row.
+        await login_rate_limiter.clear_account(account_key)
 
         async with user_transaction(engine, account.id) as connection:
             # Every user has exactly one membership, the personal workspace signup creates.
@@ -252,7 +254,6 @@ def build_auth_router(
             workspace_name: str = (
                 await connection.execute(_WORKSPACE_NAME, {"id": workspace_id})
             ).scalar_one()
-        await login_rate_limiter.clear_account(account_key)
         set_session_cookie(
             response,
             SessionCookie(workspace_id=workspace_id, token=token),

@@ -2,20 +2,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.config import BootstrapSettings, Settings
+from settings_environment import set_settings_environment
 
 SAFE_PASSWORD = "safe-Password_0123.~"  # noqa: S105 - a fake value for validation tests
-
-SETTINGS_ENVIRONMENT = {
-    "DATABASE_URL": "postgresql+asyncpg://flowbuilder_app:app-pw@db/example_test",
-    "REDIS_URL": "redis://redis:6379/0",
-    "OBJECT_STORAGE_HEALTH_URL": "http://minio:9000/minio/health/ready",
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel-collector:4318",
-}
-
-
-def set_settings_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    for variable, value in SETTINGS_ENVIRONMENT.items():
-        monkeypatch.setenv(variable, value)
 
 
 def test_settings_require_session_cookie_secure(monkeypatch: pytest.MonkeyPatch) -> None:

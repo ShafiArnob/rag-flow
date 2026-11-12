@@ -10,9 +10,8 @@ import pytest
 from uvicorn.main import main as uvicorn_command
 
 from app.main import create_app_from_environment
-from test_config import set_settings_environment
+from settings_environment import DATABASE_PASSWORD, set_settings_environment
 
-DATABASE_PASSWORD = "app-pw"  # noqa: S105 - the fake password in test_config.SETTINGS_ENVIRONMENT
 DOCKERFILE = Path(__file__).parent.parent / "Dockerfile"
 EXEC_FORM_CMD_PREFIX = "CMD "
 

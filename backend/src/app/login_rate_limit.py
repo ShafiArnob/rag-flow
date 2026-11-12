@@ -78,7 +78,9 @@ def user_account_key(user_id: uuid.UUID) -> str:
 
 
 def email_account_key(email: str) -> str:
-    """The key for an email no account has. Hashed, so Redis never holds the address."""
+    """The key for an email no account has. Hashed so that Redis holds no address in plain text.
+    The hash is unsalted, so this pseudonymizes rather than hides it: anyone who can read Redis can
+    test a guessed address against the keys."""
     return f"email:{hashlib.sha256(email.lower().encode()).hexdigest()}"
 
 

@@ -19,15 +19,15 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.authentication import CSRF_HEADER_NAME
 from app.sessions import SessionCookie, encode_session_cookie
-from http_users import HttpUser, TwoUsers
-from public_routes import protected_routes
-from test_auth import (
+from auth_client import (
     assert_csrf_token_invalid,
     assert_not_authenticated,
     client_for,
     cookie_header,
+    new_peer_address,
 )
-from test_login import new_peer_address
+from http_users import HttpUser, TwoUsers
+from public_routes import protected_routes
 
 
 @dataclass(frozen=True)

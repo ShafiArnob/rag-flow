@@ -5,12 +5,16 @@ import argon2
 import pytest
 from argon2.exceptions import InvalidHashError, VerificationError
 
-from app.passwords import MAX_CONCURRENT_OPERATIONS, PasswordHasher
+from app.passwords import MAX_CONCURRENT_HASHES, PasswordHasher
 
 PASSWORD = "correct horse battery staple"  # noqa: S105 - a fake value for hashing tests
 FAKE_HASH = "fake-argon2-hash"
 # Long enough for a hash that is free to start to have started; a hash that is held back never does.
 START_TIMEOUT_SECONDS = 1.0
+# Far more hashes than can run at once, as a flood of signups would queue.
+QUEUED_HASHES = 20
+# Time for several real verifies; a verify queued behind the held hashes would never finish.
+VERIFY_TIMEOUT_SECONDS = 5.0
 
 
 class BlockingArgon2Hash:
@@ -113,7 +117,7 @@ async def test_a_cancelled_hash_holds_its_slot_until_its_thread_finishes(
     try:
         abandoned = [
             asyncio.create_task(password_hasher.hash(PASSWORD))
-            for _ in range(MAX_CONCURRENT_OPERATIONS)
+            for _ in range(MAX_CONCURRENT_HASHES)
         ]
         for _ in abandoned:
             await asyncio.wait_for(blocking_hash.started.get(), START_TIMEOUT_SECONDS)
@@ -127,6 +131,31 @@ async def test_a_cancelled_hash_holds_its_slot_until_its_thread_finishes(
 
         blocking_hash.release.set()
         assert await waiting == FAKE_HASH
-        assert blocking_hash.peak_running == MAX_CONCURRENT_OPERATIONS
+        assert blocking_hash.peak_running == MAX_CONCURRENT_HASHES
     finally:
         blocking_hash.release.set()
+
+
+async def test_a_verify_runs_while_hashes_fill_their_threads_and_queue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Signup has no rate limit, so its hashes must not delay the verify every login needs."""
+    password_hasher = PasswordHasher()
+    # Hashed before the patch, so the verify below checks a real hash.
+    password_hash = await password_hasher.hash(PASSWORD)
+    blocking_hash = BlockingArgon2Hash(asyncio.get_running_loop())
+    monkeypatch.setattr(argon2.PasswordHasher, "hash", blocking_hash)
+    try:
+        queued = [asyncio.create_task(password_hasher.hash(PASSWORD)) for _ in range(QUEUED_HASHES)]
+        for _ in range(MAX_CONCURRENT_HASHES):
+            await asyncio.wait_for(blocking_hash.started.get(), START_TIMEOUT_SECONDS)
+
+        is_valid = await asyncio.wait_for(
+            password_hasher.verify(password_hash, PASSWORD), VERIFY_TIMEOUT_SECONDS
+        )
+
+        assert is_valid is True
+        assert blocking_hash.peak_running == MAX_CONCURRENT_HASHES
+    finally:
+        blocking_hash.release.set()
+    assert await asyncio.gather(*queued) == [FAKE_HASH] * QUEUED_HASHES

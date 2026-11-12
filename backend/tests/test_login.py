@@ -8,7 +8,6 @@ import asyncio
 import ipaddress
 import json
 import logging
-import secrets
 import uuid
 from collections.abc import AsyncIterator
 
@@ -16,12 +15,12 @@ import httpx
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from redis.asyncio import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.main import create_app
-from tenants import create_tenant
-from test_auth import (
+from auth_client import (
     AUDIT_ENTRIES,
     BASE_URL,
     LOOPBACK_ADDRESS,
@@ -33,10 +32,12 @@ from test_auth import (
     client_for,
     new_email,
     new_password,
+    new_peer_address,
     session_cookie_of,
     sessions_in_workspace,
     sign_up,
 )
+from tenants import create_tenant
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("schema_at_head")]
 
@@ -45,19 +46,16 @@ ACCOUNT_ATTEMPTS_ALLOWED = 5
 IP_ATTEMPTS_ALLOWED = 20
 FIRST_LOCKOUT_SECONDS = 60
 SECOND_LOCKOUT_SECONDS = 120
+MAXIMUM_LOCKOUT_SECONDS = 900
+# The lockout before the first that reaches the cap, and one long past it.
+PREVIOUS_LOCKOUTS = [4, 50]
 CONCURRENT_ATTEMPTS = 10
-# The IPv6 documentation prefix (RFC 3849): large enough that random addresses never collide.
-DOCUMENTATION_NETWORK = ipaddress.IPv6Network("2001:db8::/32")
 FORWARDED_FOR_ADDRESS = "203.0.113.9"
 # Nothing listens on port 1 in the test container, so a connection is refused at once.
 CLOSED_PORT = 1
 UNREACHABLE_REDIS_TIMEOUT_SECONDS = 0.5
 
 USER_EMAIL = text("SELECT email FROM users WHERE id = :id")
-
-
-def new_peer_address() -> str:
-    return str(DOCUMENTATION_NETWORK[secrets.randbelow(DOCUMENTATION_NETWORK.num_addresses)])
 
 
 def account_keys_prefix(user_id: uuid.UUID) -> str:
@@ -256,6 +254,34 @@ async def test_the_next_lockout_lasts_twice_as_long(
     assert await fail_until_locked_out(client, signed_up) == SECOND_LOCKOUT_SECONDS
 
 
+@pytest.mark.parametrize("previous_lockouts", PREVIOUS_LOCKOUTS)
+async def test_lockouts_stop_growing_at_fifteen_minutes(
+    client: httpx.AsyncClient, signed_up: SignedUp, redis: Redis, previous_lockouts: int
+) -> None:
+    lockouts_key = f"{account_keys_prefix(signed_up.user_id)}:lockouts"
+    assert await redis.set(lockouts_key, previous_lockouts)
+
+    assert await fail_until_locked_out(client, signed_up) == MAXIMUM_LOCKOUT_SECONDS
+
+
+async def test_an_email_without_an_account_locks_out_like_one_with_an_account(
+    client: httpx.AsyncClient,
+) -> None:
+    """Otherwise the lockout would tell which emails have accounts. The spellings of an email share
+    one budget, as they share one account."""
+    email = new_email()
+    spellings = [email.upper(), email]
+
+    for attempt in range(ACCOUNT_ATTEMPTS_ALLOWED):
+        response = await log_in(client, spellings[attempt % len(spellings)], new_password())
+        assert_invalid_credentials(response)
+
+    assert (
+        retry_after_of_rate_limited(await log_in(client, email, new_password()))
+        == FIRST_LOCKOUT_SECONDS
+    )
+
+
 async def test_a_successful_login_resets_the_attempts_and_the_lockouts(
     client: httpx.AsyncClient, signed_up: SignedUp, redis: Redis
 ) -> None:
@@ -327,9 +353,9 @@ async def test_concurrent_wrong_passwords_get_exactly_the_allowed_attempts(
 async def test_login_is_500_and_starts_no_session_when_redis_is_unreachable(
     app_engine: AsyncEngine, superuser_engine: AsyncEngine, signed_up: SignedUp
 ) -> None:
-    unreachable = Redis(
-        host=LOOPBACK_ADDRESS,
-        port=CLOSED_PORT,
+    # Built as create_app_from_environment builds it, so the test sees production's retry policy.
+    unreachable = Redis.from_url(
+        f"redis://{LOOPBACK_ADDRESS}:{CLOSED_PORT}/0",
         socket_connect_timeout=UNREACHABLE_REDIS_TIMEOUT_SECONDS,
         socket_timeout=UNREACHABLE_REDIS_TIMEOUT_SECONDS,
     )
@@ -344,6 +370,37 @@ async def test_login_is_500_and_starts_no_session_when_redis_is_unreachable(
     assert response.status_code == 500
     assert response.headers.get_list("set-cookie") == []
     assert await sessions_in_workspace(superuser_engine, signed_up.workspace_id) == 1
+
+
+async def test_login_is_500_and_writes_nothing_when_redis_fails_after_the_password_check(
+    app_engine: AsyncEngine,
+    redis: Redis,
+    superuser_engine: AsyncEngine,
+    signed_up: SignedUp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Redis can stop answering between counting the attempt and clearing the account. Then
+    nothing may be written: no session nobody holds, no audit row of a login nobody received."""
+
+    async def stopped_answering(*_names: str) -> int:
+        raise RedisConnectionError("Redis stopped answering")
+
+    monkeypatch.setattr(redis, "delete", stopped_answering)
+    app = create_app(TracerProvider(), {}, app_engine, redis, session_cookie_secure=True)
+    transport = httpx.ASGITransport(
+        app=app, raise_app_exceptions=False, client=(new_peer_address(), PEER_PORT)
+    )
+    async with httpx.AsyncClient(transport=transport, base_url=BASE_URL) as client:
+        response = await log_in(client, signed_up.email, signed_up.password)
+
+    assert response.status_code == 500
+    assert response.headers.get_list("set-cookie") == []
+    assert await sessions_in_workspace(superuser_engine, signed_up.workspace_id) == 1
+    async with superuser_engine.connect() as connection:
+        entries = (
+            await connection.execute(AUDIT_ENTRIES, {"workspace_id": signed_up.workspace_id})
+        ).all()
+    assert entries == []
 
 
 async def test_failed_logins_log_neither_the_email_nor_the_password(
