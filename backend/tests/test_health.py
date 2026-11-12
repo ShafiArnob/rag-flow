@@ -8,10 +8,14 @@ import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from pydantic import SecretStr
+from redis.asyncio import Redis
 
+from app.database import create_database_engine
 from app.health import ReadinessCheck
 from app.logging_config import JsonFormatter, RedactionFilter
 from app.main import create_app
+from unreachable_services import UNREACHABLE_DATABASE_URL, UNREACHABLE_REDIS_URL
 
 
 async def healthy() -> None:
@@ -47,10 +51,16 @@ async def client_for(
 ) -> AsyncIterator[httpx.AsyncClient]:
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(span_exporter))
-    app = create_app(provider, checks)
+    # The health routes never touch the engine or the Redis client, and both connect only when
+    # first used, so these need no database and no Redis.
+    engine = create_database_engine(SecretStr(UNREACHABLE_DATABASE_URL))
+    redis = Redis.from_url(UNREACHABLE_REDIS_URL)
+    app = create_app(provider, checks, engine, redis, session_cookie_secure=True)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+    await redis.aclose()
+    await engine.dispose()
 
 
 @pytest.fixture

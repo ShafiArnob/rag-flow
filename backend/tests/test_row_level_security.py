@@ -12,7 +12,7 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.tenancy import workspace_transaction
-from schema_expectations import RLS_EXEMPT_TABLES, workspace_key_column
+from schema_expectations import RLS_EXEMPT_TABLES, USER_SCOPED_TABLES, workspace_key_column
 from tenants import SESSION_TOKEN_HASH_BYTES, Tenant, TwoTenants
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("schema_at_head")]
@@ -29,11 +29,16 @@ OVERLAP_SECONDS = 0.005
 
 
 async def tenant_tables(engine: AsyncEngine) -> list[str]:
-    """Every table that row-level security must protect, read from the catalog so a new table is
-    covered without editing the tests. The catalog tests keep the exemptions honest."""
+    """Every table that row-level security must protect by workspace, read from the catalog so a new
+    table is covered without editing the tests. The catalog tests keep the exclusions honest, and
+    test_user_row_level_security covers the user-scoped tables."""
     async with engine.connect() as connection:
         tables = (await connection.execute(TABLES)).scalars().all()
-    return [table for table in tables if table not in RLS_EXEMPT_TABLES]
+    return [
+        table
+        for table in tables
+        if table not in RLS_EXEMPT_TABLES and table not in USER_SCOPED_TABLES
+    ]
 
 
 async def test_app_role_without_workspace_setting_sees_no_rows_in_any_tenant_table(

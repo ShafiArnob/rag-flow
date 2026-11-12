@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     redis_url: str
     object_storage_health_url: str
     otel_exporter_otlp_endpoint: str
+    # No default: a forgotten value must stop the service, not quietly send the cookie over HTTP.
+    session_cookie_secure: bool
     otel_service_name: str = "flowbuilder-api"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 

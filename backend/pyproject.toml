@@ -5,6 +5,7 @@ description = "FlowBuilder API and workers"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.14",
+    "argon2-cffi>=25.1",
     "asyncpg>=0.30",
     "celery[redis]>=5.4",
     "fastapi>=0.115",
@@ -58,6 +59,6 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
-    "integration: needs the Postgres from infra/docker-compose.yml (DATABASE_URL)",
+    "integration: needs Postgres (DATABASE_URL) and Redis (REDIS_URL), as infra/docker-compose.test.yml provides",
     "contract: node contract tests (added in P01_S08)",
 ]

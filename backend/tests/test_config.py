@@ -1,9 +1,42 @@
 import pytest
 from pydantic import ValidationError
 
-from app.config import BootstrapSettings
+from app.config import BootstrapSettings, Settings
 
 SAFE_PASSWORD = "safe-Password_0123.~"  # noqa: S105 - a fake value for validation tests
+
+SETTINGS_ENVIRONMENT = {
+    "DATABASE_URL": "postgresql+asyncpg://flowbuilder_app:app-pw@db/example_test",
+    "REDIS_URL": "redis://redis:6379/0",
+    "OBJECT_STORAGE_HEALTH_URL": "http://minio:9000/minio/health/ready",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel-collector:4318",
+}
+
+
+def set_settings_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    for variable, value in SETTINGS_ENVIRONMENT.items():
+        monkeypatch.setenv(variable, value)
+
+
+def test_settings_require_session_cookie_secure(monkeypatch: pytest.MonkeyPatch) -> None:
+    set_settings_environment(monkeypatch)
+    monkeypatch.delenv("SESSION_COOKIE_SECURE", raising=False)
+
+    with pytest.raises(ValidationError) as raised:
+        Settings()  # type: ignore[call-arg]
+
+    assert [error["loc"] for error in raised.value.errors()] == [("session_cookie_secure",)]
+    assert raised.value.errors()[0]["type"] == "missing"
+
+
+@pytest.mark.parametrize(("value", "expected"), [("true", True), ("false", False)])
+def test_settings_read_session_cookie_secure(
+    monkeypatch: pytest.MonkeyPatch, value: str, expected: bool
+) -> None:
+    set_settings_environment(monkeypatch)
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", value)
+
+    assert Settings().session_cookie_secure is expected  # type: ignore[call-arg]
 
 
 def set_bootstrap_environment(

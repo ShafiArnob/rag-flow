@@ -5,3 +5,33 @@ values:
     enabled: true
     type: default
     description: API base URL of the local Docker Compose stack
+  - key: signup_email
+    value: ''
+    enabled: true
+    type: default
+    description: Set by the Signup request's pre-request script on every run
+  - key: signup_password
+    value: ''
+    enabled: true
+    type: secret
+    description: Set by the Signup request's pre-request script on every run; never commit a value
+  - key: user_id
+    value: ''
+    enabled: true
+    type: default
+    description: Stored by the Signup request
+  - key: workspace_id
+    value: ''
+    enabled: true
+    type: default
+    description: Stored by the Signup request
+  - key: csrf_token
+    value: ''
+    enabled: true
+    type: secret
+    description: Stored by the Signup request; never commit a value
+  - key: session_cookie
+    value: ''
+    enabled: true
+    type: secret
+    description: The session cookie's value, stored by the Signup request; never commit a value

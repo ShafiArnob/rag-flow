@@ -22,13 +22,15 @@ _ROLE_CHECKS = text(
             SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
             WHERE n.nspname = 'public' AND pg_has_role(r.oid, p.proowner, 'USAGE')
         ) AS has_owner_privileges_in_public,
-        NULLIF(current_setting('app.workspace_id', true), '') IS NOT NULL AS sees_workspace_setting
+        NULLIF(current_setting('app.workspace_id', true), '') IS NOT NULL AS sees_workspace_setting,
+        NULLIF(current_setting('app.user_id', true), '') IS NOT NULL AS sees_user_setting,
+        NULLIF(current_setting('app.login_email', true), '') IS NOT NULL AS sees_login_email_setting
     FROM pg_roles r
     WHERE r.rolname = current_user
     """
 )
 
-# Each of these lets a connection read or write rows outside its workspace.
+# Each of these lets a connection read or write rows outside its workspace or user.
 _BYPASS_DESCRIPTIONS = {
     "is_superuser": "is a superuser",
     "has_bypassrls": "has BYPASSRLS",
@@ -37,6 +39,8 @@ _BYPASS_DESCRIPTIONS = {
         "owns, or has the privileges of the owner of, a relation or function in schema public"
     ),
     "sees_workspace_setting": "sees app.workspace_id already set on a new connection",
+    "sees_user_setting": "sees app.user_id already set on a new connection",
+    "sees_login_email_setting": "sees app.login_email already set on a new connection",
 }
 
 

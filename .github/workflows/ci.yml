@@ -26,6 +26,14 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U flowbuilder -d flowbuilder_test"
           --health-interval 5s --health-timeout 3s --health-retries 10
+      # The login limiter tests run against a real Redis.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       # The superuser only bootstraps; migrations and tests use the owner and app roles it creates.
       BOOTSTRAP_DATABASE_URL: postgresql+asyncpg://flowbuilder:ci-only@localhost:5432/flowbuilder_test
