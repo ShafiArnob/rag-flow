@@ -4,7 +4,7 @@ name: flowbuilder
 #   docker compose --env-file .env -f infra/docker-compose.yml up --build --wait
 
 # Each process gets only the database role it needs: the superuser only in db-bootstrap, the owner
-# only in migrate, and the row-level-security-bound app role in api and worker.
+# only in migrate and rotate-keys, and the row-level-security-bound app role in api and worker.
 x-backend-environment: &backend-environment
   DATABASE_URL: postgresql+asyncpg://flowbuilder_app:${DATABASE_APP_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
   REDIS_URL: redis://redis:6379/0
@@ -97,7 +97,10 @@ services:
     # Started from Docker Desktop without its dependencies, the api's role guard fails while postgres
     # is still starting; retry.
     restart: on-failure
-    environment: *backend-environment
+    # Only the api and rotate-keys hold the master keys; the worker decrypts no secret yet.
+    environment:
+      <<: *backend-environment
+      MASTER_KEYS: ${MASTER_KEYS:?see .env.example}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     depends_on:
@@ -128,6 +131,23 @@ services:
       timeout: 10s
       retries: 6
       start_period: 15s
+
+  # One-shot, run on demand once every api instance holds the new key first in MASTER_KEYS:
+  #   docker compose --env-file .env -f infra/docker-compose.yml run --build --rm rotate-keys
+  # --build because `up --build` skips this profile, so run would otherwise reuse a stale image.
+  # It re-wraps every data key under the first key, as the owner, whose policies on secrets let it
+  # select and update any row in every workspace; its own queries touch only the key columns. It
+  # holds the owner's credentials and every master key, so run it only for a rotation. Rerun it until
+  # it reports 0 remain. docs/key-providers.md has the full runbook.
+  rotate-keys:
+    build: ../backend
+    profiles: [maintenance]
+    command: ["flowbuilder", "keys", "rotate"]
+    environment:
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://flowbuilder_owner:${DATABASE_OWNER_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+      MASTER_KEYS: ${MASTER_KEYS:?see .env.example}
+    depends_on:
+      migrate: {condition: service_completed_successfully}
 
   frontend:
     build: ../frontend

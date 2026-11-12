@@ -1,7 +1,8 @@
 import re
-from typing import Literal
+from pathlib import Path
+from typing import Literal, Self
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 MINIMUM_PASSWORD_LENGTH = 16
@@ -31,6 +32,24 @@ class MigrationSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", hide_input_in_errors=True)
 
     migration_database_url: SecretStr
+
+
+class KeyringSettings(BaseSettings):
+    """Where the master keys that wrap secrets' data keys come from, documented in .env.example.
+
+    Separate from Settings so the key rotation command needs only this and the owner's URL.
+    """
+
+    model_config = SettingsConfigDict(extra="ignore", hide_input_in_errors=True)
+
+    master_keys: SecretStr | None = None
+    master_keys_file: Path | None = None
+
+    @model_validator(mode="after")
+    def require_exactly_one_source(self) -> Self:
+        if (self.master_keys is None) == (self.master_keys_file is None):
+            raise ValueError("set exactly one of MASTER_KEYS and MASTER_KEYS_FILE")
+        return self
 
 
 class BootstrapSettings(BaseSettings):

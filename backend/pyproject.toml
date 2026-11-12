@@ -8,6 +8,7 @@ dependencies = [
     "argon2-cffi>=25.1",
     "asyncpg>=0.30",
     "celery[redis]>=5.4",
+    "cryptography>=50.0.2",
     "fastapi>=0.115",
     "httpx>=0.28",
     "opentelemetry-exporter-otlp-proto-http>=1.28",
@@ -19,8 +20,12 @@ dependencies = [
     "uvicorn>=0.32",
 ]
 
+[project.scripts]
+flowbuilder = "app.cli:main"
+
 [dependency-groups]
 dev = [
+    "hypothesis>=6.170.15",
     "mypy>=1.13",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",

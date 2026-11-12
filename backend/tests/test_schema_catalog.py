@@ -135,7 +135,7 @@ async def test_every_relation_is_rls_protected_or_declared_exempt(
             table,
             policy.name,
             "PERMISSIVE",
-            "{public}",
+            policy.roles,
             policy.command,
             policy.using,
             policy.with_check,

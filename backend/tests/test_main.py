@@ -7,9 +7,12 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 from uvicorn.main import main as uvicorn_command
 
+from app.crypto.key_provider import KeyringError
 from app.main import create_app_from_environment
+from support.master_keys import ALL_ZERO_PLACEHOLDER, encoded, new_master_key
 from support.settings_environment import DATABASE_PASSWORD, set_settings_environment
 
 DOCKERFILE = Path(__file__).parent.parent / "Dockerfile"
@@ -84,3 +87,42 @@ def test_startup_does_not_warn_when_the_session_cookie_is_secure(
     create_app_from_environment()
 
     assert [record for record in startup_records if record.levelno >= logging.WARNING] == []
+
+
+def test_startup_fails_without_a_keyring(
+    monkeypatch: pytest.MonkeyPatch, startup_records: list[logging.LogRecord]
+) -> None:
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
+    monkeypatch.delenv("MASTER_KEYS")
+
+    with pytest.raises(
+        ValidationError, match="set exactly one of MASTER_KEYS and MASTER_KEYS_FILE"
+    ):
+        create_app_from_environment()
+
+
+@pytest.mark.parametrize(
+    "weak_keyring",
+    [
+        pytest.param(ALL_ZERO_PLACEHOLDER, id="all-zero-placeholder"),
+        pytest.param(encoded(new_master_key()[:16]), id="16-bytes"),
+        pytest.param(f"{encoded(new_master_key())} {ALL_ZERO_PLACEHOLDER}", id="weak-retired-key"),
+    ],
+)
+def test_startup_fails_on_a_weak_keyring_without_echoing_it(
+    monkeypatch: pytest.MonkeyPatch,
+    startup_records: list[logging.LogRecord],
+    weak_keyring: str,
+) -> None:
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
+    monkeypatch.setenv("MASTER_KEYS", weak_keyring)
+
+    with pytest.raises(KeyringError, match=r"^MASTER_KEYS: key ") as raised:
+        create_app_from_environment()
+
+    for key in weak_keyring.split():
+        assert key not in str(raised.value)
+        assert key not in repr(raised.value)
+    assert all(
+        key not in record.getMessage() for record in startup_records for key in weak_keyring.split()
+    )
