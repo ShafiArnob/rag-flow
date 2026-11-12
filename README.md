@@ -12,7 +12,7 @@ Monorepo layout:
 ## Run the stack
 
 ```sh
-cp .env.example .env        # then change the passwords
+cp .env.example .env        # then change the passwords and set MASTER_KEYS (openssl rand -base64 32)
 docker compose --env-file .env -f infra/docker-compose.yml up --build --wait
 curl localhost:8000/readyz
 ```

@@ -28,7 +28,7 @@ pytestmark = pytest.mark.integration
 ALEMBIC_INI = Path(__file__).parent.parent / "alembic.ini"
 
 # Every revision in order, from base. Add each new revision here; the step test fails until you do.
-REVISION_STEPS = ("base", "0001", "0002", "0003", "0004", "0005")
+REVISION_STEPS = ("base", "0001", "0002", "0003", "0004", "0005", "0006")
 
 SEEDED_TABLES = ("workspaces", "users", "workspace_members")
 

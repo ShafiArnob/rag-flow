@@ -1,7 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.config import BootstrapSettings, Settings
+from app.config import BootstrapSettings, KeyringSettings, Settings
+from support.master_keys import encoded, new_master_key
 from support.settings_environment import set_settings_environment
 
 SAFE_PASSWORD = "safe-Password_0123.~"  # noqa: S105 - a fake value for validation tests
@@ -74,3 +75,39 @@ def test_bootstrap_settings_reject_unsafe_or_short_password_without_echoing_it(
     assert raised.value.errors()[0]["loc"] == (variable.lower(),)
     assert unsafe_password not in str(raised.value)
     assert unsafe_password not in repr(raised.value)
+
+
+def test_keyring_settings_require_a_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MASTER_KEYS", raising=False)
+    monkeypatch.delenv("MASTER_KEYS_FILE", raising=False)
+
+    with pytest.raises(
+        ValidationError, match="set exactly one of MASTER_KEYS and MASTER_KEYS_FILE"
+    ):
+        KeyringSettings()
+
+
+def test_keyring_settings_refuse_both_sources_without_echoing_the_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    master_keys = encoded(new_master_key())
+    monkeypatch.setenv("MASTER_KEYS", master_keys)
+    monkeypatch.setenv("MASTER_KEYS_FILE", "/run/secrets/master-keys")
+
+    with pytest.raises(ValidationError, match="set exactly one of") as raised:
+        KeyringSettings()
+
+    assert master_keys not in str(raised.value)
+    assert master_keys not in repr(raised.value)
+
+
+def test_keyring_settings_hide_the_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    master_keys = encoded(new_master_key())
+    monkeypatch.setenv("MASTER_KEYS", master_keys)
+    monkeypatch.delenv("MASTER_KEYS_FILE", raising=False)
+
+    settings = KeyringSettings()
+
+    assert settings.master_keys is not None
+    assert settings.master_keys.get_secret_value() == master_keys
+    assert master_keys not in repr(settings)

@@ -9,6 +9,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
+from hypothesis import settings as hypothesis_settings
 from opentelemetry.sdk.trace import TracerProvider
 from pydantic import SecretStr
 from redis.asyncio import Redis
@@ -24,6 +25,11 @@ from support.unreachable_services import UNREACHABLE_DATABASE_URL, UNREACHABLE_R
 TEST_DATABASE_URL_VARIABLES = ("DATABASE_URL", "MIGRATION_DATABASE_URL", "BOOTSTRAP_DATABASE_URL")
 TEST_DATABASE_NAME_SUFFIX = "_test"
 ALEMBIC_INI = Path(__file__).parent.parent / "alembic.ini"
+
+# Derandomized, so every run tries the same examples and a failure reproduces; no example database,
+# because the test stack mounts the source read-only and a run must not write into the tree.
+hypothesis_settings.register_profile("flowbuilder", derandomize=True, database=None)
+hypothesis_settings.load_profile("flowbuilder")
 
 
 @pytest.fixture(scope="session", autouse=True)

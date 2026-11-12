@@ -81,6 +81,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: cp .env.example .env
+      # The api refuses the placeholder master key in .env.example, so give this run a real one.
+      - name: Generate a master key
+        run: sed -i "s|^MASTER_KEYS=.*|MASTER_KEYS=$(openssl rand -base64 32)|" .env
       - name: Build every image
         run: docker compose --env-file .env -f infra/docker-compose.yml build
       - name: Bring the stack up and wait for every health check

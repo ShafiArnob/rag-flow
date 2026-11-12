@@ -41,6 +41,7 @@ backend/src/app/
 ├── main.py              # app factory: wires routers and dependencies
 ├── config.py
 ├── worker.py            # Celery app only; tasks live in their feature package
+├── cli.py               # the `flowbuilder` command: argument parsing only, work lives in its feature
 ├── api/                 # HTTP edge: routers and request/response schemas, no business logic
 │   ├── health.py
 │   ├── auth.py
@@ -51,7 +52,7 @@ backend/src/app/
 ├── database/            # engine.py, bootstrap.py, roles.py, tenancy.py, seed.py
 ├── identity/            # passwords.py, sessions.py, authentication.py, login_rate_limit.py, service.py
 ├── audit.py
-├── crypto/              # P01_S05: envelope.py, key_provider.py
+├── crypto/              # P01_S05: envelope.py, key_provider.py, service.py, rotation.py
 ├── egress/              # P01_S06: guarded HTTP client and allowlist policy
 ├── connectors/          # P01_S07: registry.py, repository.py, service.py
 ├── nodes/               # P01_S08: contract.py, registry.py, builtin/

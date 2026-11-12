@@ -20,7 +20,8 @@ from app.api.health import (
     postgres_check,
     redis_check,
 )
-from app.config import Settings
+from app.config import KeyringSettings, Settings
+from app.crypto.key_provider import load_local_key_provider
 from app.database.engine import create_database_engine
 from app.database.roles import assert_role_is_subject_to_row_level_security
 from app.identity.authentication import build_session_dependency
@@ -104,6 +105,9 @@ def create_app_from_environment() -> FastAPI:
             "the session cookie is sent without the Secure attribute, so browsers also send it"
             " over plain HTTP; set SESSION_COOKIE_SECURE=true everywhere but local development"
         )
+    # Nothing reads secrets yet, but a missing or weak keyring must stop the API at deploy time,
+    # not on the first secret a user stores.
+    load_local_key_provider(KeyringSettings())
 
     engine = create_database_engine(settings.database_url)
     redis = Redis.from_url(

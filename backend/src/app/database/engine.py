@@ -13,6 +13,10 @@ def create_database_engine(
     partition maintenance). Tables use FORCE ROW LEVEL SECURITY, so without it an owner statement
     that RLS would filter silently touches zero rows; with it, that statement fails loudly.
 
+    Key rotation (``app.crypto.rotation``) is the one owner connection that keeps row security on:
+    it reaches every workspace's secrets through policies granted to the owner, which
+    ``row_security=False`` would turn into an error instead.
+
     ``pool_size`` defaults to SQLAlchemy's. Tests set it to 1 to make every checkout reuse one
     connection.
     """

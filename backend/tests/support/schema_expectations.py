@@ -4,6 +4,8 @@ migration that changes the fact."""
 
 from dataclasses import dataclass
 
+from app.database.roles import DATABASE_OWNER_ROLE
+
 
 @dataclass(frozen=True)
 class GrantedPrivileges:
@@ -39,12 +41,13 @@ APP_PRIVILEGES = {
 
 @dataclass(frozen=True)
 class Policy:
-    """A permissive policy for every role, with its expressions as pg_policies prints them."""
+    """A permissive policy, with its roles and expressions as pg_policies prints them."""
 
     name: str
     command: str
     using: str | None
     with_check: str | None
+    roles: str = "{public}"
 
 
 # Functions in schema public, outside extensions, that the application role may execute.
@@ -73,7 +76,8 @@ USER_SCOPED_TABLES = {
 _ACTS_FOR_ROW_USER = "(id = app_current_user_id())"
 
 # Every policy beyond the single <table>_tenant policy, by table. Each needs its own isolation
-# story, told by tests/test_user_row_level_security.py.
+# story, told by tests/test_user_row_level_security.py and, for secrets,
+# tests/crypto/test_rotation.py.
 EXTRA_POLICIES = {
     "users": frozenset(
         {
@@ -101,6 +105,26 @@ EXTRA_POLICIES = {
                 "SELECT",
                 using="(user_id = app_current_user_id())",
                 with_check=None,
+            ),
+        }
+    ),
+    # Key rotation re-wraps every workspace's data keys as the owner, which may read and update
+    # secrets but not insert or delete them.
+    "secrets": frozenset(
+        {
+            Policy(
+                "secrets_key_rotation_select",
+                "SELECT",
+                using="true",
+                with_check=None,
+                roles=f"{{{DATABASE_OWNER_ROLE}}}",
+            ),
+            Policy(
+                "secrets_key_rotation_update",
+                "UPDATE",
+                using="true",
+                with_check="true",
+                roles=f"{{{DATABASE_OWNER_ROLE}}}",
             ),
         }
     ),
