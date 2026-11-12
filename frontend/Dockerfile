@@ -1,4 +1,4 @@
-FROM node:22-alpine AS deps
+FROM node:25-alpine AS deps
 RUN corepack enable
 WORKDIR /app
 RUN chown node:node /app
@@ -17,7 +17,7 @@ COPY --chown=node:node . .
 RUN pnpm build
 
 # Production image. Keep this stage last so a build without a target produces it.
-FROM node:22-alpine AS production
+FROM node:25-alpine AS production
 # Next's standalone server binds to HOSTNAME, which Docker sets to the container id unless overridden.
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
