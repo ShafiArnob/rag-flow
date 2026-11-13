@@ -3,21 +3,89 @@
 **P01_S06** · 2026-11-13 · One outbound HTTP client that every user-, connector- and node-supplied URL goes through, so none of them can reach an internal address (SSRF).
 
 ```cards
-Built | `EgressClient`, the address policy, a bounded DNS resolver, the SSRF corpus suite, and a lint rule that bans raw HTTP imports.
-No callers yet | Connector tests (P01_S07), the URL source (P02_S02) and the HTTP Request node (P03_S06) will be its first users.
-Later | The per-workspace plain-http setting and domain allowlist (P03_S07). Until then, callers pass `allow_plain_http`.
+Built | The guard itself, its safety rules, and an automatic check that stops new code from skipping it.
+Not used yet | Connectors (P01_S07), web-page sources (P02_S02) and the HTTP Request step (P03_S06) will be its first users.
+Later | Each workspace choosing which websites are allowed (P03_S07).
 ```
 
-## What it does
+```part
+Part 1 | The short version | For everyone. No technical background needed.
+```
 
-- A request to an internal address is refused before any connection is opened. That covers cloud metadata (`169.254.169.254`), `localhost`, private and Docker network addresses, and every disguise of them: `127.1`, `0x7f000001`, `[::ffff:127.0.0.1]`, redirects, and DNS answers that change.
-- A credential, such as an API key, is sent only over https, only to the URL's own origin, and never follows a redirect elsewhere.
-- Every call is bounded: 15 s for the whole call, redirects included, a 10 MB response cap, and at most 3 redirects.
-- Code under `backend/src/app/` cannot bypass the guard: a raw `httpx`, `requests` or `urllib.request` import fails lint.
+## What it is
 
-## How it works
+FlowBuilder will soon fetch things from the internet for you: web pages, files, and answers from services such as OpenAI. The egress guard is the gatekeeper for every one of those trips.
 
-### 1. Where it sits
+Think of a building's post room. It will send your letter to any address in the world, but it will never deliver one to the building's own server room. The guard works the same way: the public internet is fine, and FlowBuilder's private systems are off limits.
+
+## Why it matters
+
+```compare
+Without the guard | With the guard
+Anyone who can type a web address into a workflow could point FlowBuilder at its own database, or at the cloud's store of secret keys. | Addresses inside FlowBuilder's private network are refused before anything is sent.
+A saved API key could be passed on to whatever website a link leads to. | A key only ever goes to the one website it was saved for, over a secure connection.
+One slow or huge download could tie FlowBuilder up. | Every request stops after 15 seconds or 10 MB.
+A future feature could forget the safety checks. | The checks live in one place, and code that skips them is rejected automatically.
+```
+
+## How it works, in plain words
+
+Before every trip, the guard looks up where the web address really leads, because a friendly-looking name can point somewhere private. Only then does it decide.
+
+```mermaid
+flowchart LR
+  ask["<b>A workflow asks</b><br/><small>for a web address</small>"]:::external
+  look["<b>Look it up</b><br/><small>where does it really lead?</small>"]
+  decide{"Public<br/>internet?"}
+  fetch["<b>Fetch it</b><br/><small>within 15 s and 10 MB</small>"]:::store
+  refuse["<b>Refuse</b><br/><small>and say so</small>"]:::planned
+  ask --> look --> decide
+  decide -->|yes| fetch
+  decide -->|no| refuse
+```
+
+Figure 1. Every request, and every hand-off to another address, goes through this check. Nothing is sent until the answer is "public".
+
+```mermaid
+mindmap
+  root((The egress guard))
+    Private systems stay private
+      FlowBuilder's database
+      The cloud's secret-key service
+      Other internal services
+    API keys stay with their site
+      Sent only where they were saved for
+      Only over secure connections
+    Fair limits
+      15 seconds per request
+      10 MB per answer
+      3 hand-offs at most
+```
+
+Figure 2. What the guard protects, at a glance.
+
+## Examples
+
+```examples
+ok | A workflow downloads a report from a public website. | The report arrives as normal.
+ok | A connector calls an AI service with its saved API key. | The key goes to that service over a secure connection, and the answer comes back.
+ok | A website hands the request on to another website. | The trip continues, but the API key stays behind. It is never shown to the second website.
+fail | Someone types the address of the cloud's secret-key service into a workflow. | Refused before anything is sent. The workflow shows "the host does not resolve to an allowed address".
+fail | A public website tries to hand the request on to a private address. | Refused at the hand-off. The private address is never contacted.
+fail | A download is larger than 10 MB, or takes longer than 15 seconds. | It stops, and the workflow reports that the answer was too large or too slow.
+```
+
+## What it does not do yet
+
+- Nothing in FlowBuilder uses it yet. Connectors, web-page sources and the HTTP Request step will be the first.
+- Every public website is allowed. Letting a workspace limit itself to a list of approved websites comes later.
+- An insecure (http) address can't yet be allowed per workspace. For now, each feature decides when it calls the guard.
+
+```part
+Part 2 | How it works | For engineers working on FlowBuilder.
+```
+
+## Components
 
 ```mermaid
 flowchart TB
@@ -32,11 +100,9 @@ flowchart TB
   client -->|"3 send"| pinned
 ```
 
-Figure 1. Components of one outbound request, in the order the client uses them. Dashed: callers that later subphases build.
+Figure 3. Components of one outbound request, in the order the client uses them. Dashed: callers that later subphases build.
 
-### 2. What happens on every hop
-
-Every request, and every redirect it follows, goes through the same five checks:
+## Every hop
 
 ```steps
 1 · Check the URL | client.py | https only, unless `allow_plain_http`. No `user:pass@`. A credential only over https.
@@ -46,11 +112,11 @@ Every request, and every redirect it follows, goes through the same five checks:
 5 · Read or redirect | client.py | Counts body bytes up to the cap, and refuses compressed bodies. A redirect goes back to step 1.
 ```
 
-Figure 2. The per-hop checks. The 15 s deadline covers all hops together, and a 4th redirect is refused.
+Figure 4. The per-hop checks. The 15 s deadline covers all hops together, and a 4th redirect is refused.
 
 > **The client connects only to an address it has checked.** It checks the resolved address, not the URL's text, so every spelling of a host reaches the same decision, and pinning the connection means a DNS answer that changes after the check is never used.
 
-### 3. A redirect to an internal address
+## A redirect to an internal address
 
 ```mermaid
 sequenceDiagram
@@ -69,9 +135,54 @@ sequenceDiagram
   E-->>C: EgressRefusedError
 ```
 
-Figure 3. A redirect re-runs every check. The metadata service is never contacted, and the API key would not have followed the redirect even to a public host.
+Figure 5. A redirect re-runs every check. The metadata service is never contacted, and the API key would not have followed the redirect even to a public host.
 
-### 4. What the policy refuses
+## Examples
+
+```examples
+ok | `request("GET", "https://api.example.test/v1")` | `EgressResponse(status_code=200, …)`. The connection goes to the resolved IP, and TLS checks the name `api.example.test`.
+ok | A 302 to `/next` on the same origin, with a credential and `X-Api-Key` | Followed. The credential and the header are sent again.
+ok | A 302 to `https://other.example.test/` | Followed, without the credential or caller headers, which stay with the first origin for good.
+fail | `GET https://169.254.169.254/latest/meta-data/` | `EgressRefusedError`: "refused request to https://169.254.169.254: the host does not resolve to an allowed address". `.detail` names the link-local address, for logs.
+fail | `GET http://api.example.test/` without `allow_plain_http` | `EgressRefusedError`: "the 'http' scheme is not allowed".
+fail | A credential on an `http://` URL, even with `allow_plain_http=True` | `EgressRefusedError`: "a credential is only sent over https".
+fail | `headers={"Content-Length": "5"}` (also `Host`, `Transfer-Encoding`, `Proxy-*`) | `EgressRefusedError`: "the Content-Length header is set by the egress client".
+fail | A header value containing CR, LF or NUL | `EgressRefusedError` naming the header, never its value. Nothing is sent.
+fail | A 307 to another origin with a request body | `EgressRefusedError`: "a redirect to another origin would resend the request body".
+fail | A 4th redirect | `EgressRefusedError`: "more than 3 redirects". The 4th target is never contacted.
+fail | A body over `max_response_bytes` | `EgressResponseTooLargeError`: "response from https://api.example.test exceeded 10485760 bytes".
+fail | `Content-Encoding: gzip` in the response | `EgressRefusedError`: "the response body is compressed".
+fail | A server that stops answering | `EgressTimeoutError`: "request to … took longer than 15.0 seconds", naming the origin that stalled.
+fail | Connection refused, a TLS failure, or a malformed response | `EgressConnectionError` with the error type, such as `ConnectError` or `RemoteProtocolError`.
+```
+
+## How a request ends
+
+```mermaid
+stateDiagram-v2
+  state "Check URL and headers" as Check
+  state "Resolve and check addresses" as Resolve
+  state "Send and read" as Send
+  state "EgressResponse" as Done
+  state "EgressRefusedError" as Refused
+  state "EgressConnectionError" as Failed
+  state "EgressResponseTooLargeError" as TooLarge
+  [*] --> Check
+  Check --> Resolve
+  Resolve --> Send
+  Send --> Done: any status
+  Send --> Check: redirect, at most 3
+  Check --> Refused: scheme, credential, header
+  Resolve --> Refused: internal or unresolvable
+  Send --> Refused: compressed, 4th redirect
+  Send --> Failed: network or protocol
+  Send --> TooLarge: over the cap
+  Done --> [*]
+```
+
+Figure 6. Every way one call can end. Each failure is an `EgressError` subclass, and an `EgressTimeoutError` can end the call in any state once the 15 s deadline passes.
+
+## What the policy refuses
 
 | Kind | Addresses |
 | --- | --- |
@@ -79,15 +190,6 @@ Figure 3. A redirect re-runs every check. The metadata service is never contacte
 | IPv6 | `::1`, `::`, ULA `fc00::/7` (includes `fd00:ec2::254`), link-local `fe80::/10`, multicast `ff00::/8`, NAT64 `64:ff9b::/96`, 6to4 `2002::/16`, documentation `2001:db8::/32`, and anything outside the internet unicast range `2000::/3` |
 | Embedded IPv4 | `::ffff:a.b.c.d` takes the verdict of `a.b.c.d`. IPv4-compatible and IPv4-translated forms fall outside `2000::/3`. |
 | Fallback | Anything else Python's `ipaddress` says is not global |
-
-Callers see one message for any host they can't reach, "the host does not resolve to an allowed address", so errors can't be used to map internal DNS. The actual address is kept in `EgressRefusedError.detail`, for server logs only.
-
-### 5. Headers and credentials
-
-- `EgressCredential` is a header name plus a `SecretStr`. It goes only to the URL's origin, only over https, and is dropped for good when a redirect changes the scheme, host or port.
-- Caller headers are dropped on an origin change too. A 307 or 308 to another origin that would resend the body is refused.
-- The client sets `Host`, `Accept-Encoding: identity` and the framing headers itself. A caller that sets them, or `Proxy-*`, is refused, which blocks request smuggling against the remote server.
-- A header containing CR, LF or NUL is refused before sending. No error message quotes a header value, a path or a query string, only the origin.
 
 ## Code map
 

@@ -5,8 +5,17 @@
 // It renders the page once to check every diagram became an SVG, then prints it; a diagram that
 // fails to render stops the script instead of reaching the PDF as raw text.
 //
-// Besides plain Markdown, the source can use:
-//   ```mermaid   a diagram. Flowcharts get the node classes in NODE_CLASSES (`A:::store`).
+// Besides plain Markdown, the source can use these blocks. Cells are separated by " | " and may hold
+// inline Markdown.
+//   ```mermaid   a diagram: flowchart, sequenceDiagram, stateDiagram-v2, journey, mindmap,
+//                timeline or pie, all drawn in PALETTE. Flowcharts get the node classes in
+//                NODE_CLASSES (`A:::store`).
+//   ```part      one "Label | Title | Who it is for" line: a banner opening a part of the doc.
+//                Every part after the first starts on a new page.
+//   ```compare   a before/after table: the first line holds the two column titles, each later
+//                line one "before | after" pair.
+//   ```examples  one "ok | situation | what happens" or "fail | situation | what happens" per
+//                line: worked examples, marked as working or failing.
 //   ```steps     one "Title | file or module | what happens" per line: a left-to-right strip.
 //   ```cards     one "LABEL | text" per line: a row of summary cards.
 //   > quote      a callout box for the one point a reader must not miss.
@@ -51,8 +60,23 @@ const PALETTE = {
   observeStroke: "#c8962e",
   externalFill: "#f3f4f6",
   externalStroke: "#9ca3af",
+  // Extra hues for diagrams that colour by series (mindmap branches, pie slices, journey sections).
+  violetFill: "#f1eafb",
+  violetStroke: "#7c5cc4",
+  roseFill: "#fbe9ef",
+  roseStroke: "#c4507c",
+  // Examples and before/after: what works, and what fails or is refused.
+  goodFill: "#e6f4ea",
+  goodStroke: "#2f7d4a",
+  badFill: "#fdecec",
+  badStroke: "#b42318",
   line: "#4b5563",
 };
+const SERIES_FILLS = ["coreFill", "storeFill", "observeFill", "violetFill", "roseFill", "externalFill"];
+const SERIES_STROKES = ["coreStroke", "storeStroke", "observeStroke", "violetStroke", "roseStroke", "externalStroke"];
+// The theme's per-series variables (cScale0, pie1, fillType0, …), drawn from the palette.
+const seriesVariables = (prefix, keys, firstIndex) =>
+  Object.fromEntries(keys.map((key, index) => [`${prefix}${index + firstIndex}`, PALETTE[key]]));
 
 // Node classes every flowchart can use. core: built in this repo (the default look).
 // focus: the node the figure is about. store: databases and caches. observe: telemetry.
@@ -97,12 +121,28 @@ const MERMAID_CONFIG = {
     activationBorderColor: PALETTE.coreStroke,
     attributeBackgroundColorOdd: "#ffffff",
     attributeBackgroundColorEven: PALETTE.surface,
+    // Mindmap branches and timeline sections.
+    ...seriesVariables("cScale", SERIES_FILLS, 0),
+    ...seriesVariables("cScalePeer", SERIES_STROKES, 0),
+    ...Object.fromEntries(SERIES_FILLS.map((_, index) => [`cScaleLabel${index}`, PALETTE.ink])),
+    // Journey sections.
+    ...seriesVariables("fillType", [...SERIES_FILLS, "coreFill", "storeFill"], 0),
+    // Pie slices: strong hues, so white labels stay readable on them.
+    ...seriesVariables("pie", SERIES_STROKES, 1),
+    pieSectionTextColor: "#ffffff",
+    pieSectionTextSize: "14px",
+    pieStrokeColor: "#ffffff",
+    pieOuterStrokeColor: PALETTE.rule,
+    pieLegendTextColor: PALETTE.text,
+    pieTitleTextColor: PALETTE.ink,
   },
   flowchart: { htmlLabels: true, curve: "basis", nodeSpacing: 32, rankSpacing: 48, padding: 12 },
   sequence: { mirrorActors: false, width: 110, height: 40, actorMargin: 60, boxMargin: 8,
               messageMargin: 30, noteMargin: 8, actorFontSize: 16, messageFontSize: 16,
               noteFontSize: 15 },
   er: { minEntityWidth: 110, entityPadding: 10, fontSize: 14 },
+  state: { padding: 10, textHeight: 12 },
+  journey: { taskFontSize: 14, taskFontFamily: TEXT_FONT, boxMargin: 8, width: 140 },
 };
 
 const STYLE = `
@@ -116,6 +156,10 @@ const STYLE = `
   h3 { font-size: 11pt; color: ${PALETTE.ink}; margin: 14pt 0 5pt; break-after: avoid; }
   p, ul, ol { margin: 0 0 7pt; }
   li { margin-bottom: 3pt; }
+  /* A list item that introduces a code block stays on the same page as it. */
+  li:has(> pre) { break-inside: avoid; }
+  /* A printed page has nothing to click: URLs read as text. */
+  a { color: inherit; text-decoration: none; }
   strong { color: ${PALETTE.ink}; }
   code { font-family: ${CODE_FONT}; font-size: 8.6pt; background: #f1f3f6; padding: 0.5pt 3pt;
          border-radius: 3pt; }
@@ -150,6 +194,29 @@ const STYLE = `
   .step-where { font-family: ${CODE_FONT}; font-size: 7.6pt; color: ${PALETTE.muted}; margin: 1pt 0 4pt; }
   .step code { background: rgba(255, 255, 255, 0.7); }
   .step-arrow { align-self: center; color: ${PALETTE.muted}; font-size: 11pt; }
+  .part { margin: 18pt 0 4pt; padding: 10pt 14pt; border-radius: 6pt; background: ${PALETTE.coreFill};
+          border-left: 5px solid ${PALETTE.coreStroke}; break-after: avoid; }
+  .part ~ .part { break-before: page; margin-top: 0; }
+  .part-label { font-size: 8pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+                color: ${PALETTE.coreStroke}; }
+  .part-title { font-size: 17pt; font-weight: 700; color: ${PALETTE.ink}; line-height: 1.25; }
+  .part-audience { color: #4b5563; margin-top: 2pt; }
+  table.compare { table-layout: fixed; font-size: 9.2pt; break-inside: avoid; }
+  table.compare th { width: 50%; border-bottom: none; padding: 6pt 8pt; }
+  table.compare th:first-child { background: ${PALETTE.badFill}; color: ${PALETTE.badStroke}; }
+  table.compare th:last-child { background: ${PALETTE.goodFill}; color: ${PALETTE.goodStroke}; }
+  table.compare td { padding: 6pt 8pt; }
+  table.compare td:first-child { border-right: 1px solid ${PALETTE.rule}; }
+  .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; margin: 6pt 0 12pt; }
+  .example { border: 1px solid ${PALETTE.rule}; border-left-width: 4px; border-radius: 5pt;
+             padding: 7pt 10pt; break-inside: avoid; font-size: 9pt; line-height: 1.45; }
+  .example-ok { border-left-color: ${PALETTE.goodStroke}; }
+  .example-fail { border-left-color: ${PALETTE.badStroke}; }
+  .example-verdict { font-size: 7.5pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .example-ok .example-verdict { color: ${PALETTE.goodStroke}; }
+  .example-fail .example-verdict { color: ${PALETTE.badStroke}; }
+  .example-situation { font-weight: 600; color: ${PALETTE.ink}; margin: 2pt 0 3pt; }
+  .example-outcome { color: ${PALETTE.text}; }
 `;
 
 function findBrowser() {
@@ -180,14 +247,40 @@ function buildPage(markdown, title) {
   const root = document.getElementById("document");
   root.innerHTML = marked.parse(${toScriptLiteral(markdown)});
 
-  const rows = (block) => block.textContent.trim().split("\\n").filter((line) => line.trim())
-    .map((line) => line.split(" | ").map((cell) => marked.parseInline(cell.trim())));
-  const element = (className, html) => {
-    const node = document.createElement("div");
+  const cells = (block) => block.textContent.trim().split("\\n").filter((line) => line.trim())
+    .map((line) => line.split(" | ").map((cell) => cell.trim()));
+  const rows = (block) => cells(block).map((row) => row.map((cell) => marked.parseInline(cell)));
+  const element = (className, html, tag = "div") => {
+    const node = document.createElement(tag);
     node.className = className;
     node.innerHTML = html;
     return node;
   };
+  const examples = { ok: ["example example-ok", "&#10003; Works"], fail: ["example example-fail", "&#10007; Fails"] };
+
+  for (const block of root.querySelectorAll("pre > code.language-part")) {
+    const [[label, title, audience]] = rows(block);
+    block.parentElement.replaceWith(element("part", '<div class="part-label">' + label + "</div>"
+      + '<div class="part-title">' + (title ?? "") + "</div>"
+      + (audience ? '<div class="part-audience">' + audience + "</div>" : "")));
+  }
+  for (const block of root.querySelectorAll("pre > code.language-compare")) {
+    const [[before, after], ...pairs] = rows(block);
+    const body = pairs.map(([left, right]) => "<tr><td>" + left + "</td><td>" + (right ?? "") + "</td></tr>");
+    block.parentElement.replaceWith(element("compare", "<thead><tr><th>&#10007; " + before
+      + "</th><th>&#10003; " + after + "</th></tr></thead><tbody>" + body.join("") + "</tbody>", "table"));
+  }
+  for (const block of root.querySelectorAll("pre > code.language-examples")) {
+    const grid = element("examples", "");
+    for (const [kind, situation, outcome] of cells(block)) {
+      const style = examples[kind];
+      if (!style) throw new Error("an examples line must start with ok or fail, not " + JSON.stringify(kind));
+      grid.append(element(style[0], '<div class="example-verdict">' + style[1] + "</div>"
+        + '<div class="example-situation">' + marked.parseInline(situation ?? "") + "</div>"
+        + '<div class="example-outcome">' + marked.parseInline(outcome ?? "") + "</div>"));
+    }
+    block.parentElement.replaceWith(grid);
+  }
 
   for (const block of root.querySelectorAll("pre > code.language-mermaid")) {
     const source = block.textContent.trim();
@@ -213,7 +306,7 @@ function buildPage(markdown, title) {
     block.parentElement.replaceWith(row);
   }
   // Long paths and identifiers in narrow cells wrap after a "/" or "_", never mid-word.
-  for (const container of root.querySelectorAll("td code, .step code, .step-where")) {
+  for (const container of root.querySelectorAll("td code, .step code, .step-where, .example code")) {
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) walker.currentNode.data = walker.currentNode.data.replace(/([\\/_])/g, "$1\\u200b");
   }
