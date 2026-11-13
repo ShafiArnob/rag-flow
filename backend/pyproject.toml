@@ -10,6 +10,7 @@ dependencies = [
     "celery[redis]>=5.4",
     "cryptography>=50.0.2",
     "fastapi>=0.115",
+    "httpcore>=1.0",
     "httpx>=0.28",
     "opentelemetry-exporter-otlp-proto-http>=1.28",
     "opentelemetry-instrumentation-fastapi>=0.49b0",
@@ -44,10 +45,28 @@ line-length = 100
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "S", "ASYNC", "SIM", "RUF"]
+select = ["E", "F", "I", "B", "UP", "S", "ASYNC", "SIM", "RUF", "TID"]
+
+# Outbound requests go through the egress client, which refuses internal addresses (SSRF).
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"httpx".msg = "Send outbound requests through app.egress.client.EgressClient."
+"httpcore".msg = "Send outbound requests through app.egress.client.EgressClient."
+"requests".msg = "Send outbound requests through app.egress.client.EgressClient."
+"urllib.request".msg = "Send outbound requests through app.egress.client.EgressClient."
+"http.client".msg = "Send outbound requests through app.egress.client.EgressClient."
+"aiohttp".msg = "Send outbound requests through app.egress.client.EgressClient."
+"urllib3".msg = "Send outbound requests through app.egress.client.EgressClient."
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "TID251"]
+"src/app/egress/**" = ["TID251"]
+# The readiness check probes MinIO on the compose network's private address, which the egress
+# client rightly refuses.
+"src/app/main.py" = ["TID251"]
+"src/app/api/health.py" = ["TID251"]
+# Implementations of httpcore's network interfaces, whose method signatures take a timeout.
+"src/app/egress/pinned_network.py" = ["ASYNC109"]
+"tests/support/fake_network.py" = ["ASYNC109"]
 
 [tool.mypy]
 strict = true
