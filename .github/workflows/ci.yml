@@ -46,7 +46,7 @@ jobs:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
       - run: uv sync --frozen
       - run: uv run ruff format --check .
       - run: uv run ruff check .
